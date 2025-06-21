@@ -259,6 +259,155 @@ export class DatabaseStorage implements IStorage {
     
     return searchResults;
   }
+
+  // Task Items operations
+  async createTaskItem(item: InsertTaskItem): Promise<TaskItem> {
+    const [newItem] = await db.insert(taskItems).values(item).returning();
+    return newItem;
+  }
+
+  async getTaskItems(taskId: number): Promise<TaskItem[]> {
+    const items = await db
+      .select()
+      .from(taskItems)
+      .where(eq(taskItems.taskId, taskId))
+      .orderBy(asc(taskItems.id));
+    
+    return items;
+  }
+
+  async updateTaskItem(id: number, item: Partial<InsertTaskItem>): Promise<TaskItem | undefined> {
+    const [updatedItem] = await db
+      .update(taskItems)
+      .set(item)
+      .where(eq(taskItems.id, id))
+      .returning();
+    return updatedItem;
+  }
+
+  async deleteTaskItem(id: number): Promise<void> {
+    await db.delete(taskItems).where(eq(taskItems.id, id));
+  }
+
+  // Task Sub-items operations
+  async createTaskSubItem(subItem: InsertTaskSubItem): Promise<TaskSubItem> {
+    const [newSubItem] = await db.insert(taskSubItems).values(subItem).returning();
+    return newSubItem;
+  }
+
+  async getTaskSubItems(taskItemId: number): Promise<TaskSubItem[]> {
+    const subItems = await db
+      .select()
+      .from(taskSubItems)
+      .where(eq(taskSubItems.taskItemId, taskItemId))
+      .orderBy(asc(taskSubItems.id));
+    
+    return subItems;
+  }
+
+  async updateTaskSubItem(id: number, subItem: Partial<InsertTaskSubItem>): Promise<TaskSubItem | undefined> {
+    const [updatedSubItem] = await db
+      .update(taskSubItems)
+      .set(subItem)
+      .where(eq(taskSubItems.id, id))
+      .returning();
+    return updatedSubItem;
+  }
+
+  async deleteTaskSubItem(id: number): Promise<void> {
+    await db.delete(taskSubItems).where(eq(taskSubItems.id, id));
+  }
+
+  // Task Reviews & Authority System
+  async createTaskReview(review: InsertTaskReview): Promise<TaskReview> {
+    const [newReview] = await db.insert(taskReviews).values(review).returning();
+    return newReview;
+  }
+
+  async getTaskReviews(taskId: number): Promise<(TaskReview & { reviewer: User; reviewee: User })[]> {
+    const reviews = await db
+      .select({
+        id: taskReviews.id,
+        taskId: taskReviews.taskId,
+        reviewerId: taskReviews.reviewerId,
+        revieweeId: taskReviews.revieweeId,
+        reviewType: taskReviews.reviewType,
+        rating: taskReviews.rating,
+        feedback: taskReviews.feedback,
+        createdAt: taskReviews.createdAt,
+        reviewer: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        },
+        reviewee: {
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          profileImageUrl: users.profileImageUrl,
+          createdAt: users.createdAt,
+          updatedAt: users.updatedAt,
+        }
+      })
+      .from(taskReviews)
+      .innerJoin(users, eq(taskReviews.reviewerId, users.id))
+      .where(eq(taskReviews.taskId, taskId))
+      .orderBy(desc(taskReviews.createdAt));
+    
+    return reviews as any;
+  }
+
+  async updateMemberAuthority(userId: string, reason: string, relatedTaskId?: number, relatedReviewId?: number): Promise<void> {
+    await db.insert(authorityHistory).values({
+      userId,
+      changeReason: reason,
+      relatedTaskId,
+      relatedReviewId,
+    });
+  }
+
+  async calculateMemberAuthorityScore(userId: string): Promise<number> {
+    // This would implement the E-E-A-T scoring algorithm
+    // For now, return a simple score based on review count
+    const reviews = await db
+      .select()
+      .from(taskReviews)
+      .where(eq(taskReviews.revieweeId, userId));
+    
+    return reviews.length * 10; // Simple calculation
+  }
+
+  // Grace Period Requests
+  async createGracePeriodRequest(request: InsertGracePeriodRequest): Promise<GracePeriodRequest> {
+    const [newRequest] = await db.insert(gracePeriodRequests).values(request).returning();
+    return newRequest;
+  }
+
+  async getGracePeriodRequests(userId: string): Promise<GracePeriodRequest[]> {
+    const requests = await db
+      .select()
+      .from(gracePeriodRequests)
+      .where(eq(gracePeriodRequests.userId, userId))
+      .orderBy(desc(gracePeriodRequests.createdAt));
+    
+    return requests;
+  }
+
+  async approveGracePeriodRequest(requestId: number, approverId: string): Promise<void> {
+    await db
+      .update(gracePeriodRequests)
+      .set({
+        status: 'approved',
+        approvedBy: approverId,
+        approvedAt: new Date(),
+      })
+      .where(eq(gracePeriodRequests.id, requestId));
+  }
 }
 
 export const storage = new DatabaseStorage();

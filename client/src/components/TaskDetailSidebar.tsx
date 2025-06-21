@@ -146,85 +146,92 @@ export default function TaskDetailSidebar({
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            {/* Task Name */}
-            <div>
-              <Label htmlFor="taskName">Task Name</Label>
-              <Input
-                id="taskName"
-                value={formData.taskName}
-                onChange={(e) => setFormData({ ...formData, taskName: e.target.value })}
-                className="mt-2"
-              />
-            </div>
+          <Tabs defaultValue="details" className="h-full">
+            <TabsList className="glass-modal border-white/20 mb-6">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="items">Task Items</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="details">
+              <div className="space-y-6">
+                {/* Task Name */}
+                <div>
+                  <Label htmlFor="taskName">Task Name</Label>
+                  <Input
+                    id="taskName"
+                    value={formData.taskName}
+                    onChange={(e) => setFormData({ ...formData, taskName: e.target.value })}
+                    className="mt-2"
+                  />
+                </div>
 
-            {/* SEO Pillar */}
-            <div>
-              <Label>SEO Pillar</Label>
-              <Select 
-                value={formData.pillar} 
-                onValueChange={(value) => setFormData({ ...formData, pillar: value })}
-              >
-                <SelectTrigger className="mt-2 frosted-input">
-                  <SelectValue placeholder="Select a pillar" />
-                </SelectTrigger>
-                <SelectContent className="glass-modal">
-                  <SelectItem value="Technical">Technical SEO</SelectItem>
-                  <SelectItem value="On-Page & Content">On-Page & Content</SelectItem>
-                  <SelectItem value="Off-Page">Off-Page SEO</SelectItem>
-                  <SelectItem value="Analytics">Analytics & Tracking</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* SEO Pillar */}
+                <div>
+                  <Label>SEO Pillar</Label>
+                  <Select 
+                    value={formData.pillar || ""} 
+                    onValueChange={(value) => setFormData({ ...formData, pillar: value })}
+                  >
+                    <SelectTrigger className="mt-2 frosted-input">
+                      <SelectValue placeholder="Select a pillar" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-modal">
+                      <SelectItem value="Technical">Technical SEO</SelectItem>
+                      <SelectItem value="On-Page & Content">On-Page & Content</SelectItem>
+                      <SelectItem value="Off-Page">Off-Page SEO</SelectItem>
+                      <SelectItem value="Analytics">Analytics & Tracking</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* SEO Phase */}
-            <div>
-              <Label>SEO Phase</Label>
-              <Select 
-                value={formData.phase} 
-                onValueChange={(value) => setFormData({ ...formData, phase: value })}
-              >
-                <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Select a phase" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1: Foundation">1: Foundation</SelectItem>
-                  <SelectItem value="2: Growth">2: Growth</SelectItem>
-                  <SelectItem value="3: Authority">3: Authority</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                {/* SEO Phase */}
+                <div>
+                  <Label>SEO Phase</Label>
+                  <Select 
+                    value={formData.phase || ""} 
+                    onValueChange={(value) => setFormData({ ...formData, phase: value })}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Select a phase" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1: Foundation">1: Foundation</SelectItem>
+                      <SelectItem value="2: Growth">2: Growth</SelectItem>
+                      <SelectItem value="3: Authority">3: Authority</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Assigned To */}
-            <div>
-              <Label>Assigned To</Label>
-              <div className="flex items-center space-x-3 mt-2">
-                {assignedMember && (
-                  <Avatar className="w-8 h-8">
-                    <AvatarImage src={assignedMember.user.profileImageUrl || undefined} />
-                    <AvatarFallback>
-                      {assignedMember.user.firstName?.[0]}{assignedMember.user.lastName?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                )}
-                <Select 
-                  value={formData.assignedToId} 
-                  onValueChange={(value) => setFormData({ ...formData, assignedToId: value })}
-                >
-                  <SelectTrigger className="flex-1 frosted-input">
-                    <SelectValue placeholder="Select team member" />
-                  </SelectTrigger>
-                  <SelectContent className="glass-modal">
-                    <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {members?.map((member) => (
-                      <SelectItem key={member.userId} value={member.userId}>
-                        {member.user.firstName} {member.user.lastName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                {/* Assigned To */}
+                <div>
+                  <Label>Assigned To</Label>
+                  <div className="flex items-center space-x-3 mt-2">
+                    {assignedMember && (
+                      <Avatar className="w-8 h-8">
+                        <AvatarImage src={assignedMember.user.profileImageUrl || undefined} />
+                        <AvatarFallback>
+                          {assignedMember.user.firstName?.[0]}{assignedMember.user.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                    <Select 
+                      value={formData.assignedToId || ""} 
+                      onValueChange={(value) => setFormData({ ...formData, assignedToId: value === "unassigned" ? null : value })}
+                    >
+                      <SelectTrigger className="flex-1 frosted-input">
+                        <SelectValue placeholder="Select team member" />
+                      </SelectTrigger>
+                      <SelectContent className="glass-modal">
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {members?.map((member) => (
+                          <SelectItem key={member.userId} value={member.userId}>
+                            {member.user.firstName} {member.user.lastName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
             {/* Date Range */}
             <div className="grid grid-cols-2 gap-4">
@@ -324,9 +331,9 @@ export default function TaskDetailSidebar({
                 placeholder="Add task description..."
                 rows={4}
                 className="mt-2"
-              />
-            </div>
-          </div>
+                />
+                </div>
+              </div>
             </TabsContent>
             
             <TabsContent value="items">
@@ -341,29 +348,29 @@ export default function TaskDetailSidebar({
           </Tabs>
         </div>
 
-        {/* Footer */}
-        <div className="border-t border-white/20 px-6 py-4">
-          <div className="flex space-x-3">
-            <Button 
-              className="flex-1 glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700"
-              onClick={handleSave}
-              disabled={updateTaskMutation.isPending}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              {updateTaskMutation.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-            <Button 
-              variant="destructive"
-              className="glass-button bg-gradient-to-r from-red-500 to-red-600 border-red-400/30 hover:from-red-600 hover:to-red-700"
-              onClick={handleDelete}
-              disabled={deleteTaskMutation.isPending}
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              {deleteTaskMutation.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </div>
-        </div>
+    {/* Footer */}
+    <div className="border-t border-white/20 px-6 py-4">
+      <div className="flex space-x-3">
+        <Button 
+          className="flex-1 glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700"
+          onClick={handleSave}
+          disabled={updateTaskMutation.isPending}
+        >
+          <Save className="w-4 h-4 mr-2" />
+          {updateTaskMutation.isPending ? "Saving..." : "Save Changes"}
+        </Button>
+        <Button 
+          variant="destructive"
+          className="glass-button bg-gradient-to-r from-red-500 to-red-600 border-red-400/30 hover:from-red-600 hover:to-red-700"
+          onClick={handleDelete}
+          disabled={deleteTaskMutation.isPending}
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          {deleteTaskMutation.isPending ? "Deleting..." : "Delete"}
+        </Button>
       </div>
     </div>
-  );
+  </div>
+</div>
+);
 }
