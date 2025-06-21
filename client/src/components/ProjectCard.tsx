@@ -1,0 +1,128 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Users, CheckCircle, AlertCircle } from "lucide-react";
+import { ProjectWithStats } from "@/lib/types";
+import { Link } from "wouter";
+
+interface ProjectCardProps {
+  project: ProjectWithStats;
+}
+
+export default function ProjectCard({ project }: ProjectCardProps) {
+  const progressPercent = project.averageProgress;
+  const circumference = 2 * Math.PI * 14;
+  const strokeDashoffset = circumference - (circumference * progressPercent / 100);
+
+  return (
+    <Card className="hover:shadow-lg transition-shadow duration-200">
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-lg font-semibold text-gray-900 truncate">
+              {project.projectName}
+            </CardTitle>
+            <p className="text-sm text-gray-500 mt-1">
+              Created {new Date(project.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+          <div className="relative ml-4">
+            <svg className="w-12 h-12 progress-ring" viewBox="0 0 32 32">
+              <circle 
+                cx="16" 
+                cy="16" 
+                r="14" 
+                stroke="#e5e7eb" 
+                strokeWidth="2" 
+                fill="none"
+              />
+              <circle 
+                cx="16" 
+                cy="16" 
+                r="14" 
+                stroke="#10b981" 
+                strokeWidth="2" 
+                fill="none" 
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-semibold text-gray-700">
+                {progressPercent}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {/* Project Stats */}
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span className="text-gray-600">Completed:</span>
+            <span className="font-medium">{project.completedTasks}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4 text-blue-500" />
+            <span className="text-gray-600">In Progress:</span>
+            <span className="font-medium">{project.inProgressTasks}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 text-red-500" />
+            <span className="text-gray-600">Overdue:</span>
+            <span className="font-medium text-red-600">{project.overdueTasks}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Users className="w-4 h-4 text-gray-500" />
+            <span className="text-gray-600">Total:</span>
+            <span className="font-medium">{project.totalTasks}</span>
+          </div>
+        </div>
+
+        {/* Team Members */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Team:</span>
+            <div className="flex -space-x-2">
+              {project.members.slice(0, 4).map((member, index) => (
+                <Avatar key={member.id} className="w-6 h-6 border-2 border-white">
+                  <AvatarImage src={member.user.profileImageUrl || undefined} />
+                  <AvatarFallback className="text-xs">
+                    {member.user.firstName?.[0]}{member.user.lastName?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+              ))}
+              {project.members.length > 4 && (
+                <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs text-gray-600">
+                  +{project.members.length - 4}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {project.overdueTasks > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {project.overdueTasks} Overdue
+            </Badge>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex space-x-2 pt-2">
+          <Link href={`/project/${project.id}`} className="flex-1">
+            <Button className="w-full" size="sm">
+              View Timeline
+            </Button>
+          </Link>
+          <Button variant="outline" size="sm" className="flex-1">
+            Manage Members
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
