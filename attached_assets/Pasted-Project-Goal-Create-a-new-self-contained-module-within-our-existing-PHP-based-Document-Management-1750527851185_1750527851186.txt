@@ -1,0 +1,71 @@
+Project Goal:
+Create a new, self-contained module within our existing PHP-based Document Management System (DMS). This module will be a premium, multi-tenant "SEO Project Timeline" dashboard. Crucially, this module must be a direct, interactive representation of the SEO Masterplan framework (see attached Overall Organization and Delivery.docx). It should use the same terminology (Pillars, Phases) and provide a seamless, intuitive user experience that feels worthy of a production environment.
+1. UI/UX Philosophy & Design System
+This is not a basic tool. The user experience is paramount.
+Aesthetic: Clean, modern, spacious, and minimalist. Use a professional color palette (e.g., cool greys, deep blues for primary elements) with specific accent colors for status and pillars (e.g., Green for 'Completed', Red for 'Overdue', etc.).
+Responsiveness: The entire interface must be fully responsive and function flawlessly on desktop, tablet, and mobile.
+Interactivity: Avoid disruptive full-page reloads. The application should feel fast and fluid, using AJAX for all data operations (creating, updating, deleting tasks). Use subtle loading spinners to indicate background activity.
+Consistency: The UI components (buttons, modals, cards) should match the existing DMS's style guide. If one doesn't exist, establish a simple one based on a framework like Bootstrap 5 or Tailwind CSS, but with custom styling to make it look unique, not "cookie-cutter."
+2. Database Schema (Revised for SEO Context)
+Add the following tables. The new fields pillar, phase, and guideline_doc_link are essential for consistency with the Masterplan.
+Table: dms_projects
+id (INT, PK, AI)
+project_name (VARCHAR)
+owner_id (INT, FK to users.id)
+created_at (TIMESTAMP)
+Table: dms_project_members (The multi-tenant key)
+id (INT, PK, AI)
+project_id (INT, FK to dms_projects.id)
+user_id (INT, FK to users.id)
+permission_level (ENUM('edit', 'view'), DEFAULT 'view')
+Table: dms_tasks (The core table, now with SEO context)
+id (INT, PK, AI)
+project_id (INT, FK to dms_projects.id)
+task_name (VARCHAR)
+assigned_to_id (INT, NULL, FK to users.id)
+start_date (DATE, NULL)
+end_date (DATE, NULL)
+progress (INT, DEFAULT 0)
+pillar (ENUM('Technical', 'On-Page & Content', 'Off-Page', 'Analytics'), NULL) - CRITICAL FIELD
+phase (ENUM('1: Foundation', '2: Growth', '3: Authority'), NULL) - CRITICAL FIELD
+guideline_doc_link (VARCHAR(255), NULL) - CRITICAL FIELD for linking to documents in the DMS.
+status (VARCHAR, DEFAULT 'Not Started')
+3. Backend Logic (PHP - Revised)
+The API remains similar but must now handle the new SEO-specific fields.
+api/timeline/tasks.php:
+GET/POST/PUT requests must now process pillar, phase, and guideline_doc_link.
+export_to_excel.php:
+This is now more important. The exported .xlsx file must match the structure of your other Excel templates.
+Use the PhpSpreadsheet library.
+The columns must be: WBS, Phase, Pillar, Task Name, Assigned To, Start Date, End Date, Progress, Status. This ensures consistency for the end-user.
+4. Frontend UI/UX (Revised and Detailed)
+Page 1: timelines.php (Project Dashboard)
+UI: Display projects as modern UI cards on a grid. Each card should feature:
+The project_name in a bold, large font.
+"Owner: [Owner's Name]".
+A visual progress donut chart for that project's overall completion (calculated from task progress).
+Avatar icons of the first 3-4 project members.
+"View Timeline" and "Manage Members" buttons.
+A "Create New Project" button with a smooth modal animation.
+Page 2: project.php?id={id} (The SEO Project Timeline View)
+This is the main screen. Implement a three-column professional layout:
+Left Sidebar (Column 1 - Filters):
+This is key for usability. Provide filter controls that update the Gantt chart in real-time.
+Filter by Pillar (Checkboxes: Technical, On-Page, etc.).
+Filter by Phase (Checkboxes: Foundation, Growth, etc.).
+Filter by Assigned To (Dropdown of project members).
+A "Clear Filters" button.
+Main Content (Column 2 - The Timeline):
+Use Frappe Gantt for a clean, modern look.
+Customization: Configure the Gantt bars to be color-coded by their pillar. (e.g., Technical tasks are blue, Content tasks are green). This provides immediate visual context tied directly to your framework.
+The left-hand task list next to the Gantt should be clean and readable.
+Right Sidebar (Column 3 - Task Details):
+Instead of a disruptive modal, when a user clicks a task, this sidebar slides into view.
+It displays all details for the selected task.
+All fields are editable directly in this sidebar (Task Name, Dates, Progress Slider, etc.).
+Crucially, if the guideline_doc_link is present, display it as a prominent, clickable button: "View Guideline Document". This directly integrates the timeline with the rest of your DMS.
+Include a "Save Changes" and "Delete Task" button at the bottom of the sidebar.
+Multi-Tenant User Management (Manage Members Modal):
+When a project owner clicks "Manage Members," open a clean modal.
+It should list current members with a dropdown to change their permission ('edit'/'view') and a button to remove them.
+An input field at the bottom allows the owner to "Invite a new member by email." The system should show an autocomplete list of existing users in the DMS as they type.
