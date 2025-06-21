@@ -136,19 +136,19 @@ export default function ProjectTimeline() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100 flex flex-col">
       {/* Navigation Header */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+      <nav className="glass-nav px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link href="/">
-              <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+              <Button variant="ghost" size="sm" className="glass-button flex items-center space-x-2 hover:bg-white/20">
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back to Dashboard</span>
               </Button>
             </Link>
-            <div className="h-6 w-px bg-gray-300"></div>
-            <h1 className="text-2xl font-bold text-gray-900">SEO Timeline Dashboard</h1>
+            <div className="h-6 w-px bg-white/30"></div>
+            <h1 className="text-2xl font-bold text-gray-900 specular-highlight">SEO Timeline Dashboard</h1>
             <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
               <span>Projects</span>
               <span>›</span>
@@ -158,7 +158,7 @@ export default function ProjectTimeline() {
           <div className="flex items-center space-x-4">
             {user?.profileImageUrl && (
               <img 
-                className="w-8 h-8 rounded-full object-cover" 
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-white/30 shadow-lg" 
                 src={user.profileImageUrl} 
                 alt="User avatar" 
               />
@@ -171,21 +171,22 @@ export default function ProjectTimeline() {
       </nav>
 
       {/* Timeline Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+      <div className="glass-nav border-b border-white/20 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-gray-900 specular-highlight">
               {project?.projectName || 'Loading...'}
             </h2>
             {projectStats && (
               <div className="flex items-center space-x-2">
                 <div className="relative">
-                  <svg className="w-8 h-8 progress-ring" viewBox="0 0 32 32">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-green-400/20 to-emerald-400/20 blur-lg"></div>
+                  <svg className="w-8 h-8 progress-ring relative z-10" viewBox="0 0 32 32">
                     <circle 
                       cx="16" 
                       cy="16" 
                       r="14" 
-                      stroke="#e5e7eb" 
+                      stroke="rgba(229, 231, 235, 0.3)" 
                       strokeWidth="2" 
                       fill="none"
                     />
@@ -193,16 +194,22 @@ export default function ProjectTimeline() {
                       cx="16" 
                       cy="16" 
                       r="14" 
-                      stroke="#10b981" 
+                      stroke="url(#timelineProgressGradient)" 
                       strokeWidth="2" 
                       fill="none" 
                       strokeDasharray="87.96" 
                       strokeDashoffset={87.96 - (87.96 * projectStats.averageProgress / 100)}
                       strokeLinecap="round"
                     />
+                    <defs>
+                      <linearGradient id="timelineProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#059669" />
+                      </linearGradient>
+                    </defs>
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-gray-700">
+                    <span className="text-xs font-bold text-gray-700">
                       {projectStats.averageProgress}%
                     </span>
                   </div>
@@ -216,7 +223,7 @@ export default function ProjectTimeline() {
               variant="outline" 
               size="sm"
               onClick={handleExportExcel}
-              className="flex items-center space-x-2"
+              className="glass-button border-white/30 hover:border-white/50 flex items-center space-x-2"
             >
               <Download className="w-4 h-4" />
               <span>Export Excel</span>
@@ -225,7 +232,7 @@ export default function ProjectTimeline() {
               variant="outline" 
               size="sm"
               onClick={() => setShowMembersModal(true)}
-              className="flex items-center space-x-2"
+              className="glass-button border-white/30 hover:border-white/50 flex items-center space-x-2"
             >
               <Users className="w-4 h-4" />
               <span>Manage Members</span>
@@ -233,7 +240,7 @@ export default function ProjectTimeline() {
             <Button 
               size="sm"
               onClick={() => setShowAddTaskModal(true)}
-              className="flex items-center space-x-2"
+              className="glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700 flex items-center space-x-2"
             >
               <Plus className="w-4 h-4" />
               <span>Add Task</span>

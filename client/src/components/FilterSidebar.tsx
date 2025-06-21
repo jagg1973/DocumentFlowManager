@@ -72,7 +72,7 @@ export default function FilterSidebar({
       newAssignees.clear();
     } else {
       newAssignees.clear();
-      if (assigneeId !== "") {
+      if (assigneeId !== "unassigned") {
         newAssignees.add(assigneeId);
       }
     }
@@ -89,15 +89,15 @@ export default function FilterSidebar({
   };
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex-shrink-0 overflow-y-auto">
+    <div className="w-80 glass-sidebar flex-shrink-0 overflow-y-auto">
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+          <h2 className="text-lg font-semibold text-gray-900 specular-highlight">Filters</h2>
           <Button 
             variant="ghost" 
             size="sm"
             onClick={clearAllFilters}
-            className="text-sm text-primary hover:text-primary"
+            className="glass-button text-sm text-primary hover:text-primary hover:bg-white/20"
           >
             Clear All
           </Button>
@@ -156,15 +156,15 @@ export default function FilterSidebar({
         <div className="mb-8">
           <h3 className="text-sm font-medium text-gray-700 mb-3">Assigned To</h3>
           <Select 
-            value={filters.assignees.size === 0 ? "all" : Array.from(filters.assignees)[0] || ""}
+            value={filters.assignees.size === 0 ? "all" : Array.from(filters.assignees)[0] || "unassigned"}
             onValueChange={handleAssigneeChange}
           >
-            <SelectTrigger>
+            <SelectTrigger className="frosted-input">
               <SelectValue placeholder="All Team Members" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="glass-modal">
               <SelectItem value="all">All Team Members</SelectItem>
-              <SelectItem value="">Unassigned</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
               {members?.map((member) => (
                 <SelectItem key={member.userId} value={member.userId}>
                   {member.user.firstName} {member.user.lastName}
@@ -176,9 +176,9 @@ export default function FilterSidebar({
 
         {/* Project Stats */}
         {projectStats && (
-          <Card className="bg-gray-50">
+          <Card className="glass-card bg-white/5 liquid-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-700">
+              <CardTitle className="text-sm font-medium text-gray-700 specular-highlight">
                 Project Overview
               </CardTitle>
             </CardHeader>
@@ -189,19 +189,19 @@ export default function FilterSidebar({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Completed</span>
-                <Badge variant="outline" className="text-green-600 border-green-200">
+                <Badge variant="outline" className="glass-button text-green-600 border-green-200/50 bg-green-50/50">
                   {projectStats.completedTasks}
                 </Badge>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">In Progress</span>
-                <Badge variant="outline" className="text-blue-600 border-blue-200">
+                <Badge variant="outline" className="glass-button text-blue-600 border-blue-200/50 bg-blue-50/50">
                   {projectStats.inProgressTasks}
                 </Badge>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Overdue</span>
-                <Badge variant="outline" className="text-red-600 border-red-200">
+                <Badge variant="outline" className="glass-button text-red-600 border-red-200/50 bg-red-50/50">
                   {projectStats.overdueTasks}
                 </Badge>
               </div>

@@ -109,9 +109,9 @@ export default function AddTaskModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md glass-modal">
         <DialogHeader>
-          <DialogTitle>Add New Task</DialogTitle>
+          <DialogTitle className="specular-highlight">Add New Task</DialogTitle>
         </DialogHeader>
         
         <Form {...form}>
@@ -123,7 +123,7 @@ export default function AddTaskModal({
                 <FormItem>
                   <FormLabel>Task Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter task name..." {...field} />
+                    <Input placeholder="Enter task name..." className="frosted-input" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -138,11 +138,11 @@ export default function AddTaskModal({
                   <FormLabel>SEO Pillar</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="frosted-input">
                         <SelectValue placeholder="Select a pillar" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="glass-modal">
                       <SelectItem value="Technical">Technical SEO</SelectItem>
                       <SelectItem value="On-Page & Content">On-Page & Content</SelectItem>
                       <SelectItem value="Off-Page">Off-Page SEO</SelectItem>

@@ -174,9 +174,9 @@ export default function ManageMembersModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg glass-modal">
         <DialogHeader>
-          <DialogTitle>Manage Project Members</DialogTitle>
+          <DialogTitle className="specular-highlight">Manage Project Members</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">

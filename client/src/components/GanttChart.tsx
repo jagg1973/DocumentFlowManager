@@ -55,19 +55,19 @@ export default function GanttChart({ tasks, onTaskSelect, selectedTask }: GanttC
   }, [tasks]);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-white">
+    <div className="flex-1 flex flex-col overflow-hidden bg-gradient-to-br from-white to-slate-50/50">
       {/* Timeline Header */}
-      <div className="sticky top-0 bg-gray-50 border-b border-gray-200 z-10">
+      <div className="sticky top-0 glass-nav border-b border-white/20 z-10">
         <div className="flex">
-          <div className="w-80 px-6 py-3 border-r border-gray-200">
-            <span className="text-sm font-medium text-gray-700">Task Name</span>
+          <div className="w-80 px-6 py-3 border-r border-white/20">
+            <span className="text-sm font-medium text-gray-700 specular-highlight">Task Name</span>
           </div>
           <div className="flex-1 gantt-grid">
             <div className="flex h-12">
               {timelineWeeks.map((week, index) => (
                 <div 
                   key={index} 
-                  className="min-w-[100px] border-r border-gray-200 px-2 py-3 text-center"
+                  className="min-w-[100px] border-r border-white/20 px-2 py-3 text-center hover:bg-white/10 transition-all"
                 >
                   <div className="text-xs font-medium text-gray-500">
                     {week.toLocaleDateString('en-US', { month: 'short' })}

@@ -16,11 +16,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const strokeDashoffset = circumference - (circumference * progressPercent / 100);
 
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200">
+    <Card className="glass-card hover:shadow-2xl transition-all duration-300 specular-highlight group">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-lg font-semibold text-gray-900 truncate">
+            <CardTitle className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
               {project.projectName}
             </CardTitle>
             <p className="text-sm text-gray-500 mt-1">
@@ -28,12 +28,13 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             </p>
           </div>
           <div className="relative ml-4">
-            <svg className="w-12 h-12 progress-ring" viewBox="0 0 32 32">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-green-400/20 to-emerald-400/20 blur-lg group-hover:blur-xl transition-all"></div>
+            <svg className="w-12 h-12 progress-ring relative z-10" viewBox="0 0 32 32">
               <circle 
                 cx="16" 
                 cy="16" 
                 r="14" 
-                stroke="#e5e7eb" 
+                stroke="rgba(229, 231, 235, 0.3)" 
                 strokeWidth="2" 
                 fill="none"
               />
@@ -41,16 +42,22 @@ export default function ProjectCard({ project }: ProjectCardProps) {
                 cx="16" 
                 cy="16" 
                 r="14" 
-                stroke="#10b981" 
+                stroke="url(#progressGradient)" 
                 strokeWidth="2" 
                 fill="none" 
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
               />
+              <defs>
+                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+              </defs>
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-semibold text-gray-700">
+              <span className="text-sm font-bold text-gray-700 group-hover:text-green-700 transition-colors">
                 {progressPercent}%
               </span>
             </div>
@@ -114,11 +121,11 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         {/* Actions */}
         <div className="flex space-x-2 pt-2">
           <Link href={`/project/${project.id}`} className="flex-1">
-            <Button className="w-full" size="sm">
+            <Button className="w-full glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700" size="sm">
               View Timeline
             </Button>
           </Link>
-          <Button variant="outline" size="sm" className="flex-1">
+          <Button variant="outline" size="sm" className="flex-1 glass-button border-white/30 hover:border-white/50 hover:bg-white/10">
             Manage Members
           </Button>
         </div>

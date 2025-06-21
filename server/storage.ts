@@ -203,7 +203,7 @@ export class DatabaseStorage implements IStorage {
     
     return {
       hasAccess: !!member,
-      permission: member?.permissionLevel,
+      permission: member?.permissionLevel || undefined,
     };
   }
 

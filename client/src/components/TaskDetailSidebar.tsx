@@ -130,13 +130,13 @@ export default function TaskDetailSidebar({
   const assignedMember = members?.find(m => m.userId === formData.assignedToId);
 
   return (
-    <div className="w-96 bg-white border-l border-gray-200 flex-shrink-0 slide-in-right">
+    <div className="w-96 glass-sidebar border-l border-white/20 flex-shrink-0 slide-in-right">
       <div className="h-full flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-white/20">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Task Details</h3>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <h3 className="text-lg font-semibold text-gray-900 specular-highlight">Task Details</h3>
+            <Button variant="ghost" size="sm" className="glass-button hover:bg-white/20" onClick={onClose}>
               <X className="w-5 h-5" />
             </Button>
           </div>
@@ -328,10 +328,10 @@ export default function TaskDetailSidebar({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-6 py-4">
+        <div className="border-t border-white/20 px-6 py-4">
           <div className="flex space-x-3">
             <Button 
-              className="flex-1"
+              className="flex-1 glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700"
               onClick={handleSave}
               disabled={updateTaskMutation.isPending}
             >
@@ -340,6 +340,7 @@ export default function TaskDetailSidebar({
             </Button>
             <Button 
               variant="destructive"
+              className="glass-button bg-gradient-to-r from-red-500 to-red-600 border-red-400/30 hover:from-red-600 hover:to-red-700"
               onClick={handleDelete}
               disabled={deleteTaskMutation.isPending}
             >
