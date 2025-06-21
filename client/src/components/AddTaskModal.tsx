@@ -162,11 +162,11 @@ export default function AddTaskModal({
                   <FormLabel>SEO Phase</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="frosted-input">
                         <SelectValue placeholder="Select a phase" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="glass-modal">
                       <SelectItem value="1: Foundation">1: Foundation</SelectItem>
                       <SelectItem value="2: Growth">2: Growth</SelectItem>
                       <SelectItem value="3: Authority">3: Authority</SelectItem>
@@ -185,12 +185,12 @@ export default function AddTaskModal({
                   <FormLabel>Assigned To</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="frosted-input">
                         <SelectValue placeholder="Select team member" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
+                    <SelectContent className="glass-modal">
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
                       {members?.map((member) => (
                         <SelectItem key={member.userId} value={member.userId}>
                           {member.user.firstName} {member.user.lastName}

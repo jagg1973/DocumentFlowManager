@@ -163,10 +163,10 @@ export default function TaskDetailSidebar({
                 value={formData.pillar} 
                 onValueChange={(value) => setFormData({ ...formData, pillar: value })}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-2 frosted-input">
                   <SelectValue placeholder="Select a pillar" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="glass-modal">
                   <SelectItem value="Technical">Technical SEO</SelectItem>
                   <SelectItem value="On-Page & Content">On-Page & Content</SelectItem>
                   <SelectItem value="Off-Page">Off-Page SEO</SelectItem>
@@ -209,11 +209,11 @@ export default function TaskDetailSidebar({
                   value={formData.assignedToId} 
                   onValueChange={(value) => setFormData({ ...formData, assignedToId: value })}
                 >
-                  <SelectTrigger className="flex-1">
+                  <SelectTrigger className="flex-1 frosted-input">
                     <SelectValue placeholder="Select team member" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                  <SelectContent className="glass-modal">
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
                     {members?.map((member) => (
                       <SelectItem key={member.userId} value={member.userId}>
                         {member.user.firstName} {member.user.lastName}
@@ -233,7 +233,7 @@ export default function TaskDetailSidebar({
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  className="mt-2"
+                  className="mt-2 frosted-input"
                 />
               </div>
               <div>
@@ -243,7 +243,7 @@ export default function TaskDetailSidebar({
                   type="date"
                   value={formData.endDate}
                   onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  className="mt-2"
+                  className="mt-2 frosted-input"
                 />
               </div>
             </div>
@@ -276,10 +276,10 @@ export default function TaskDetailSidebar({
                 value={formData.status} 
                 onValueChange={(value) => setFormData({ ...formData, status: value })}
               >
-                <SelectTrigger className="mt-2">
+                <SelectTrigger className="mt-2 frosted-input">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="glass-modal">
                   <SelectItem value="Not Started">Not Started</SelectItem>
                   <SelectItem value="In Progress">In Progress</SelectItem>
                   <SelectItem value="Completed">Completed</SelectItem>
