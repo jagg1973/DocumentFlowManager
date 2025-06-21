@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, TrendingUp, Award, Shield, Target } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Star, Award, TrendingUp } from "lucide-react";
 
 interface MemberAuthorityDisplayProps {
   userId: string;
@@ -15,151 +14,91 @@ interface MemberAuthorityDisplayProps {
 export default function MemberAuthorityDisplay({ 
   userId, 
   userName, 
-  userImage,
+  userImage, 
   showDetailed = false 
 }: MemberAuthorityDisplayProps) {
   const { data: authorityData } = useQuery({
     queryKey: [`/api/users/${userId}/authority`],
+    enabled: !!userId,
   });
 
-  if (!authorityData) {
-    return null;
-  }
-
-  const getMemberLevelColor = (level: string) => {
-    switch (level) {
-      case "C-Level": return "bg-purple-100 text-purple-800 border-purple-200";
-      case "Manager": return "bg-blue-100 text-blue-800 border-blue-200";
-      case "SEO Lead": return "bg-green-100 text-green-800 border-green-200";
-      case "SEO Specialist": return "bg-orange-100 text-orange-800 border-orange-200";
-      case "Junior": return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "Intern": return "bg-gray-100 text-gray-800 border-gray-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
-    }
+  const getAuthorityLevel = (score: number) => {
+    if (score >= 1000) return { level: "Expert", color: "bg-purple-500", icon: Award };
+    if (score >= 500) return { level: "Advanced", color: "bg-blue-500", icon: TrendingUp };
+    if (score >= 100) return { level: "Intermediate", color: "bg-green-500", icon: Star };
+    return { level: "Beginner", color: "bg-gray-500", icon: Star };
   };
 
-  const getMemberLevelIcon = (level: string) => {
-    switch (level) {
-      case "C-Level": return <Award className="w-4 h-4" />;
-      case "Manager": return <Shield className="w-4 h-4" />;
-      case "SEO Lead": return <Target className="w-4 h-4" />;
-      default: return <Star className="w-4 h-4" />;
-    }
-  };
+  const score = authorityData?.authorityScore || 0;
+  const authority = getAuthorityLevel(score);
+  const IconComponent = authority.icon;
 
-  if (!showDetailed) {
+  if (showDetailed) {
     return (
-      <div className="flex items-center space-x-3">
-        <Avatar className="w-8 h-8">
-          <AvatarImage src={userImage || undefined} />
-          <AvatarFallback>
-            {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium">{userName}</span>
-          <Badge className={`${getMemberLevelColor(authorityData.memberLevel)} flex items-center space-x-1`}>
-            {getMemberLevelIcon(authorityData.memberLevel)}
-            <span>{authorityData.memberLevel}</span>
-          </Badge>
-          <div className="flex items-center space-x-1">
-            <span className="text-sm text-gray-600">MA:</span>
-            <span className="text-sm font-semibold text-blue-600">{authorityData.memberAuthority}</span>
+      <div className="glass-card p-4 space-y-3">
+        <div className="flex items-center space-x-3">
+          <Avatar className="w-12 h-12">
+            <AvatarImage src={userImage || undefined} />
+            <AvatarFallback>
+              {userName.split(' ').map(n => n[0]).join('')}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h3 className="font-semibold text-gray-900">{userName}</h3>
+            <div className="flex items-center space-x-2">
+              <Badge className={`${authority.color} text-white`}>
+                <IconComponent className="w-3 h-3 mr-1" />
+                {authority.level}
+              </Badge>
+              <span className="text-sm text-gray-600">MA: {score}</span>
+            </div>
           </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Authority Score</span>
+            <span className="font-semibold">{score}</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className={`h-2 rounded-full ${authority.color}`}
+              style={{ width: `${Math.min((score / 1000) * 100, 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-500">
+            Based on task completion quality, peer reviews, and expertise demonstration
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <Card className="glass-card liquid-border">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center space-x-3">
-          <Avatar className="w-10 h-10">
-            <AvatarImage src={userImage || undefined} />
-            <AvatarFallback>
-              {userName.split(' ').map(n => n[0]).join('').toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h3 className="specular-highlight">{userName}</h3>
-            <Badge className={`${getMemberLevelColor(authorityData.memberLevel)} flex items-center space-x-1 mt-1`}>
-              {getMemberLevelIcon(authorityData.memberLevel)}
-              <span>{authorityData.memberLevel}</span>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center space-x-2">
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={userImage || undefined} />
+              <AvatarFallback className="text-xs">
+                {userName.split(' ').map(n => n[0]).join('')}
+              </AvatarFallback>
+            </Avatar>
+            <Badge variant="outline" className={`${authority.color} text-white border-0`}>
+              <IconComponent className="w-3 h-3 mr-1" />
+              {authority.level}
             </Badge>
           </div>
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Member Authority Score */}
-        <div className="text-center">
-          <div className="text-3xl font-bold text-blue-600 mb-1">
-            {authorityData.memberAuthority}
-          </div>
-          <div className="text-sm text-gray-600">Member Authority (MA)</div>
-          <div className="text-xs text-gray-500">
-            Calculated: {authorityData.calculatedScore}
-          </div>
-        </div>
-
-        {/* E-E-A-T Breakdown */}
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-gray-700">E-E-A-T Metrics</h4>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Experience</span>
-              <span className="text-sm font-medium">{authorityData.experienceScore}/100</span>
-            </div>
-            <Progress value={authorityData.experienceScore} className="h-2" />
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Expertise</span>
-              <span className="text-sm font-medium">{authorityData.expertiseScore}/100</span>
-            </div>
-            <Progress value={authorityData.expertiseScore} className="h-2" />
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Authority</span>
-              <span className="text-sm font-medium">{authorityData.authorityScore}/100</span>
-            </div>
-            <Progress value={authorityData.authorityScore} className="h-2" />
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm">Trustworthiness</span>
-              <span className="text-sm font-medium">{authorityData.trustScore}/100</span>
-            </div>
-            <Progress value={authorityData.trustScore} className="h-2" />
-          </div>
-        </div>
-
-        {/* Performance Stats */}
-        <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+        </TooltipTrigger>
+        <TooltipContent>
           <div className="text-center">
-            <div className="text-lg font-semibold text-gray-900">
-              {authorityData.tasksCompleted}
-            </div>
-            <div className="text-xs text-gray-600">Tasks Completed</div>
+            <p className="font-semibold">{userName}</p>
+            <p className="text-sm">Authority Score: {score}</p>
+            <p className="text-xs text-gray-400">Level: {authority.level}</p>
           </div>
-          
-          <div className="text-center">
-            <div className="flex items-center justify-center space-x-1">
-              <Star className="w-4 h-4 text-yellow-500 fill-current" />
-              <span className="text-lg font-semibold text-gray-900">
-                {parseFloat(authorityData.averageRating).toFixed(1)}
-              </span>
-            </div>
-            <div className="text-xs text-gray-600">Average Rating</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

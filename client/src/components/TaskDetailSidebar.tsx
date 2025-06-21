@@ -8,12 +8,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Save, Trash2, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Task } from "@shared/schema";
 import { getPillarColor, getStatusColor } from "@/lib/utils";
+import TaskItemsManager from "./TaskItemsManager";
+import MemberAuthorityDisplay from "./MemberAuthorityDisplay";
 
 interface TaskDetailSidebarProps {
   task: Task;
@@ -207,12 +210,11 @@ export default function TaskDetailSidebar({
                   <Label>Assigned To</Label>
                   <div className="flex items-center space-x-3 mt-2">
                     {assignedMember && (
-                      <Avatar className="w-8 h-8">
-                        <AvatarImage src={assignedMember.user.profileImageUrl || undefined} />
-                        <AvatarFallback>
-                          {assignedMember.user.firstName?.[0]}{assignedMember.user.lastName?.[0]}
-                        </AvatarFallback>
-                      </Avatar>
+                      <MemberAuthorityDisplay
+                        userId={assignedMember.userId}
+                        userName={`${assignedMember.user.firstName} ${assignedMember.user.lastName}`}
+                        userImage={assignedMember.user.profileImageUrl}
+                      />
                     )}
                     <Select 
                       value={formData.assignedToId || ""} 

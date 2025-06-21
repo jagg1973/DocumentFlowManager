@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Project, User } from "@shared/schema";
+import MemberAuthorityDisplay from "./MemberAuthorityDisplay";
 
 interface ManageMembersModalProps {
   project: Project;
@@ -154,6 +155,19 @@ export default function ManageMembersModal({
         // Filter out users who are already members
         const existingUserIds = new Set(members?.map(m => m.userId) || []);
         const filteredUsers = users.filter((user: User) => !existingUserIds.has(user.id));
+        
+        // Show member authority for each user
+        const usersWithAuthority = filteredUsers.map((user: User) => ({
+          ...user,
+          authorityComponent: (
+            <MemberAuthorityDisplay
+              userId={user.id}
+              userName={`${user.firstName} ${user.lastName}`}
+              userImage={user.profileImageUrl}
+              showDetailed={false}
+            />
+          )
+        }));
         setSearchResults(filteredUsers);
       }
     } catch (error) {

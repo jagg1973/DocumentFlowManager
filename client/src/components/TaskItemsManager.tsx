@@ -49,7 +49,7 @@ export default function TaskItemsManager({
   });
 
   // Fetch task reviews
-  const { data: reviews = [] } = useQuery({
+  const { data: taskReviews = [] } = useQuery({
     queryKey: [`/api/tasks/${taskId}/reviews`],
   });
 
@@ -196,7 +196,7 @@ export default function TaskItemsManager({
 
         {taskItems.map((item: TaskItem) => {
           const assignedMember = members?.find(m => m.userId === item.assignedToId);
-          const itemReviews = reviews.filter((review: TaskReview) => review.taskId === taskId);
+          const itemReviews = taskReviews.filter((review: TaskReview) => review.taskId === taskId);
           
           return (
             <Card key={item.id} className="glass-card">
@@ -282,7 +282,7 @@ export default function TaskItemsManager({
             <CardTitle className="specular-highlight">Task Reviews & Feedback</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {reviews.map((review: TaskReview & { reviewer: UserType; reviewee: UserType }) => (
+            {taskReviews.map((review: TaskReview & { reviewer: UserType; reviewee: UserType }) => (
               <div key={review.id} className="flex items-start space-x-3 p-3 bg-white/50 rounded-lg">
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-1">

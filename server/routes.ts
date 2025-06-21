@@ -2,7 +2,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertProjectSchema, insertTaskSchema, insertProjectMemberSchema } from "@shared/schema";
+import { 
+  insertProjectSchema, 
+  insertTaskSchema, 
+  insertProjectMemberSchema,
+  insertTaskItemSchema,
+  insertTaskReviewSchema,
+  insertGracePeriodRequestSchema 
+} from "@shared/schema";
 import { z } from "zod";
 import ExcelJS from "exceljs";
 
@@ -325,6 +332,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error searching users:", error);
       res.status(500).json({ message: "Failed to search users" });
+    }
+  });
+
+  // Task Items routes
+  app.get('/api/tasks/:id/items', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taskId = parseInt(req.params.id);
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const access = await storage.checkUserProjectAccess(userId, task.projectId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const items = await storage.getTaskItems(taskId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching task items:", error);
+      res.status(500).json({ message: "Failed to fetch task items" });
+    }
+  });
+
+  app.post('/api/tasks/:id/items', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taskId = parseInt(req.params.id);
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const access = await storage.checkUserProjectAccess(userId, task.projectId);
+      if (!access.hasAccess || access.permission !== 'edit') {
+        return res.status(403).json({ message: "Edit permission required" });
+      }
+      
+      const itemData = insertTaskItemSchema.parse({
+        ...req.body,
+        taskId,
+      });
+      
+      const item = await storage.createTaskItem(itemData);
+      res.json(item);
+    } catch (error) {
+      console.error("Error creating task item:", error);
+      res.status(500).json({ message: "Failed to create task item" });
+    }
+  });
+
+  app.patch('/api/task-items/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const itemId = parseInt(req.params.id);
+      const updateData = req.body;
+      const updatedItem = await storage.updateTaskItem(itemId, updateData);
+      
+      if (!updatedItem) {
+        return res.status(404).json({ message: "Task item not found" });
+      }
+      
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating task item:", error);
+      res.status(500).json({ message: "Failed to update task item" });
+    }
+  });
+
+  // Task Reviews routes
+  app.get('/api/tasks/:id/reviews', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taskId = parseInt(req.params.id);
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const access = await storage.checkUserProjectAccess(userId, task.projectId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const reviews = await storage.getTaskReviews(taskId);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching task reviews:", error);
+      res.status(500).json({ message: "Failed to fetch task reviews" });
+    }
+  });
+
+  app.post('/api/tasks/:id/reviews', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taskId = parseInt(req.params.id);
+      
+      const reviewData = insertTaskReviewSchema.parse({
+        ...req.body,
+        taskId,
+        reviewerId: userId,
+      });
+      
+      const review = await storage.createTaskReview(reviewData);
+      
+      // Update member authority based on review
+      await storage.updateMemberAuthority(
+        reviewData.revieweeId,
+        `Review received: ${reviewData.reviewType}`,
+        taskId,
+        review.id
+      );
+      
+      res.json(review);
+    } catch (error) {
+      console.error("Error creating task review:", error);
+      res.status(500).json({ message: "Failed to create task review" });
+    }
+  });
+
+  // Member Authority routes
+  app.get('/api/users/:id/authority', isAuthenticated, async (req: any, res) => {
+    try {
+      const targetUserId = req.params.id;
+      const score = await storage.calculateMemberAuthorityScore(targetUserId);
+      res.json({ userId: targetUserId, authorityScore: score });
+    } catch (error) {
+      console.error("Error calculating authority score:", error);
+      res.status(500).json({ message: "Failed to calculate authority score" });
+    }
+  });
+
+  // Grace Period Request routes
+  app.post('/api/grace-period-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const requestData = insertGracePeriodRequestSchema.parse({
+        ...req.body,
+        userId,
+      });
+      
+      const request = await storage.createGracePeriodRequest(requestData);
+      res.json(request);
+    } catch (error) {
+      console.error("Error creating grace period request:", error);
+      res.status(500).json({ message: "Failed to create grace period request" });
+    }
+  });
+
+  app.get('/api/grace-period-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const requests = await storage.getGracePeriodRequests(userId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching grace period requests:", error);
+      res.status(500).json({ message: "Failed to fetch grace period requests" });
     }
   });
 
