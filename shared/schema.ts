@@ -7,12 +7,23 @@ import {
   index,
   serial,
   integer,
-  date,
+  decimal,
+  boolean,
   pgEnum,
+  date,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
+
+// Define enums first
+export const pillarEnum = pgEnum("pillar", ["Technical", "On-Page & Content", "Off-Page", "Analytics"]);
+export const phaseEnum = pgEnum("phase", ["1: Foundation", "2: Growth", "3: Authority"]);
+export const permissionEnum = pgEnum("permission_level", ["edit", "view"]);
+export const statusEnum = pgEnum("status", ["Not Started", "In Progress", "Completed", "On Hold", "Overdue"]);
+export const memberLevelEnum = pgEnum("member_level", ["C-Level", "Manager", "SEO Lead", "SEO Specialist", "Junior", "Intern"]);
+export const reviewTypeEnum = pgEnum("review_type", ["thumbs_up", "thumbs_down", "star_rating", "detailed_review"]);
+export const itemStatusEnum = pgEnum("item_status", ["pending", "in_progress", "completed", "rejected"]);
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -25,45 +36,47 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for Replit Auth
+// Enhanced User storage table with Member Authority (MA) system
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  memberLevel: memberLevelEnum("member_level").default("SEO Specialist"),
+  memberAuthority: integer("member_authority").default(100), // MA Score (0-1000)
+  experienceScore: integer("experience_score").default(50), // E1: Experience
+  expertiseScore: integer("expertise_score").default(50), // E2: Expertise  
+  authorityScore: integer("authority_score").default(50), // A: Authority
+  trustScore: integer("trust_score").default(50), // T: Trustworthiness
+  tasksCompleted: integer("tasks_completed").default(0),
+  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0.00"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
-
-// SEO-specific enums
-export const pillarEnum = pgEnum("pillar", ["Technical", "On-Page & Content", "Off-Page", "Analytics"]);
-export const phaseEnum = pgEnum("phase", ["1: Foundation", "2: Growth", "3: Authority"]);
-export const permissionEnum = pgEnum("permission_level", ["edit", "view"]);
-export const statusEnum = pgEnum("status", ["Not Started", "In Progress", "Completed", "On Hold", "Overdue"]);
 
 // Projects table
 export const projects = pgTable("dms_projects", {
   id: serial("id").primaryKey(),
   projectName: varchar("project_name", { length: 255 }).notNull(),
-  ownerId: varchar("owner_id").notNull(),
+  ownerId: varchar("owner_id").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Project members table (multi-tenant)
+// Project members with permissions
 export const projectMembers = pgTable("dms_project_members", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
-  userId: varchar("user_id").notNull(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id),
   permissionLevel: permissionEnum("permission_level").default("view"),
 });
 
-// Tasks table with SEO context
+// Enhanced Tasks table
 export const tasks = pgTable("dms_tasks", {
   id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull(),
+  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   taskName: varchar("task_name", { length: 255 }).notNull(),
-  assignedToId: varchar("assigned_to_id"),
+  assignedToId: varchar("assigned_to_id").references(() => users.id),
   startDate: date("start_date"),
   endDate: date("end_date"),
   progress: integer("progress").default(0),
@@ -76,11 +89,85 @@ export const tasks = pgTable("dms_tasks", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Task Items - Granular checklist items within tasks
+export const taskItems = pgTable("dms_task_items", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  itemName: varchar("item_name", { length: 255 }).notNull(),
+  description: text("description"),
+  assignedToId: varchar("assigned_to_id").references(() => users.id),
+  status: itemStatusEnum("status").default("pending"),
+  completedAt: timestamp("completed_at"),
+  estimatedHours: decimal("estimated_hours", { precision: 4, scale: 2 }),
+  actualHours: decimal("actual_hours", { precision: 4, scale: 2 }),
+  priority: integer("priority").default(1), // 1-5 scale
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Task Sub-items - Non-assignable micro-tasks
+export const taskSubItems = pgTable("dms_task_sub_items", {
+  id: serial("id").primaryKey(),
+  taskItemId: integer("task_item_id").notNull().references(() => taskItems.id, { onDelete: "cascade" }),
+  subItemName: varchar("sub_item_name", { length: 255 }).notNull(),
+  isCompleted: boolean("is_completed").default(false),
+  completedAt: timestamp("completed_at"),
+  orderIndex: integer("order_index").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Task Reviews & Social Validation System
+export const taskReviews = pgTable("dms_task_reviews", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull().references(() => tasks.id),
+  reviewerId: varchar("reviewer_id").notNull().references(() => users.id),
+  revieweeId: varchar("reviewee_id").notNull().references(() => users.id), // Task assignee
+  reviewType: reviewTypeEnum("review_type").notNull(),
+  rating: integer("rating"), // 1-5 stars (optional)
+  feedback: text("feedback"),
+  isPublic: boolean("is_public").default(true),
+  authorityWeight: decimal("authority_weight", { precision: 3, scale: 2 }).default("1.00"), // Based on reviewer MA
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Member Authority History - Track MA changes over time
+export const authorityHistory = pgTable("dms_authority_history", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  previousMA: integer("previous_ma"),
+  newMA: integer("new_ma"),
+  changeReason: varchar("change_reason", { length: 255 }), // "task_completion", "peer_review", "performance_decay"
+  relatedTaskId: integer("related_task_id").references(() => tasks.id),
+  relatedReviewId: integer("related_review_id").references(() => taskReviews.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Grace Period Requests - For handling negative reviews
+export const gracePeriodRequests = pgTable("dms_grace_period_requests", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  taskId: integer("task_id").notNull().references(() => tasks.id),
+  reviewId: integer("review_id").notNull().references(() => taskReviews.id),
+  reason: text("reason").notNull(),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, approved, rejected
+  requestedDays: integer("requested_days").default(3),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   ownedProjects: many(projects),
   projectMemberships: many(projectMembers),
   assignedTasks: many(tasks),
+  assignedTaskItems: many(taskItems),
+  givenReviews: many(taskReviews, { relationName: "reviewer" }),
+  receivedReviews: many(taskReviews, { relationName: "reviewee" }),
+  authorityHistory: many(authorityHistory),
+  gracePeriodRequests: many(gracePeriodRequests),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -103,18 +190,90 @@ export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
   }),
 }));
 
-export const tasksRelations = relations(tasks, ({ one }) => ({
+export const tasksRelations = relations(tasks, ({ one, many }) => ({
   project: one(projects, {
     fields: [tasks.projectId],
     references: [projects.id],
   }),
-  assignedTo: one(users, {
+  assignedUser: one(users, {
     fields: [tasks.assignedToId],
+    references: [users.id],
+  }),
+  taskItems: many(taskItems),
+  reviews: many(taskReviews),
+}));
+
+export const taskItemsRelations = relations(taskItems, ({ one, many }) => ({
+  task: one(tasks, {
+    fields: [taskItems.taskId],
+    references: [tasks.id],
+  }),
+  assignedUser: one(users, {
+    fields: [taskItems.assignedToId],
+    references: [users.id],
+  }),
+  subItems: many(taskSubItems),
+}));
+
+export const taskSubItemsRelations = relations(taskSubItems, ({ one }) => ({
+  taskItem: one(taskItems, {
+    fields: [taskSubItems.taskItemId],
+    references: [taskItems.id],
+  }),
+}));
+
+export const taskReviewsRelations = relations(taskReviews, ({ one }) => ({
+  task: one(tasks, {
+    fields: [taskReviews.taskId],
+    references: [tasks.id],
+  }),
+  reviewer: one(users, {
+    fields: [taskReviews.reviewerId],
+    references: [users.id],
+    relationName: "reviewer",
+  }),
+  reviewee: one(users, {
+    fields: [taskReviews.revieweeId],
+    references: [users.id],
+    relationName: "reviewee",
+  }),
+}));
+
+export const authorityHistoryRelations = relations(authorityHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [authorityHistory.userId],
+    references: [users.id],
+  }),
+  relatedTask: one(tasks, {
+    fields: [authorityHistory.relatedTaskId],
+    references: [tasks.id],
+  }),
+  relatedReview: one(taskReviews, {
+    fields: [authorityHistory.relatedReviewId],
+    references: [taskReviews.id],
+  }),
+}));
+
+export const gracePeriodRequestsRelations = relations(gracePeriodRequests, ({ one }) => ({
+  user: one(users, {
+    fields: [gracePeriodRequests.userId],
+    references: [users.id],
+  }),
+  task: one(tasks, {
+    fields: [gracePeriodRequests.taskId],
+    references: [tasks.id],
+  }),
+  review: one(taskReviews, {
+    fields: [gracePeriodRequests.reviewId],
+    references: [taskReviews.id],
+  }),
+  approver: one(users, {
+    fields: [gracePeriodRequests.approvedBy],
     references: [users.id],
   }),
 }));
 
-// Schemas for validation
+// Insert schemas
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
@@ -130,6 +289,31 @@ export const insertProjectMemberSchema = createInsertSchema(projectMembers).omit
   id: true,
 });
 
+export const insertTaskItemSchema = createInsertSchema(taskItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTaskSubItemSchema = createInsertSchema(taskSubItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertTaskReviewSchema = createInsertSchema(taskReviews).omit({
+  id: true,
+  createdAt: true,
+  authorityWeight: true,
+});
+
+export const insertGracePeriodRequestSchema = createInsertSchema(gracePeriodRequests).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+  expiresAt: true,
+});
+
+// Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type Project = typeof projects.$inferSelect;
@@ -138,3 +322,12 @@ export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type ProjectMember = typeof projectMembers.$inferSelect;
 export type InsertProjectMember = z.infer<typeof insertProjectMemberSchema>;
+export type TaskItem = typeof taskItems.$inferSelect;
+export type InsertTaskItem = z.infer<typeof insertTaskItemSchema>;
+export type TaskSubItem = typeof taskSubItems.$inferSelect;
+export type InsertTaskSubItem = z.infer<typeof insertTaskSubItemSchema>;
+export type TaskReview = typeof taskReviews.$inferSelect;
+export type InsertTaskReview = z.infer<typeof insertTaskReviewSchema>;
+export type AuthorityHistory = typeof authorityHistory.$inferSelect;
+export type GracePeriodRequest = typeof gracePeriodRequests.$inferSelect;
+export type InsertGracePeriodRequest = z.infer<typeof insertGracePeriodRequestSchema>;

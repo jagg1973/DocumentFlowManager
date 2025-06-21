@@ -27,6 +27,7 @@ interface TaskDetailSidebarProps {
       profileImageUrl: string | null;
     };
   }> | undefined;
+  currentUser: UserType | undefined;
   onClose: () => void;
   onTaskUpdate: () => void;
 }
@@ -34,6 +35,7 @@ interface TaskDetailSidebarProps {
 export default function TaskDetailSidebar({ 
   task, 
   members, 
+  currentUser,
   onClose, 
   onTaskUpdate 
 }: TaskDetailSidebarProps) {
@@ -325,6 +327,18 @@ export default function TaskDetailSidebar({
               />
             </div>
           </div>
+            </TabsContent>
+            
+            <TabsContent value="items">
+              <TaskItemsManager 
+                taskId={task.id}
+                assignedUser={assignedMember?.user || null}
+                members={members}
+                currentUser={currentUser}
+                onProgressUpdate={onTaskUpdate}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
 
         {/* Footer */}

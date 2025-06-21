@@ -3,6 +3,11 @@ import {
   projects,
   tasks,
   projectMembers,
+  taskItems,
+  taskSubItems,
+  taskReviews,
+  authorityHistory,
+  gracePeriodRequests,
   type User,
   type UpsertUser,
   type Project,
@@ -11,9 +16,18 @@ import {
   type InsertTask,
   type ProjectMember,
   type InsertProjectMember,
+  type TaskItem,
+  type InsertTaskItem,
+  type TaskSubItem,
+  type InsertTaskSubItem,
+  type TaskReview,
+  type InsertTaskReview,
+  type AuthorityHistory,
+  type GracePeriodRequest,
+  type InsertGracePeriodRequest,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc, asc } from "drizzle-orm";
+import { eq, and, inArray, desc, asc, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -43,6 +57,29 @@ export interface IStorage {
   
   // Search users for member invitation
   searchUsers(query: string): Promise<User[]>;
+  
+  // Task Items operations
+  createTaskItem(item: InsertTaskItem): Promise<TaskItem>;
+  getTaskItems(taskId: number): Promise<TaskItem[]>;
+  updateTaskItem(id: number, item: Partial<InsertTaskItem>): Promise<TaskItem | undefined>;
+  deleteTaskItem(id: number): Promise<void>;
+  
+  // Task Sub-items operations
+  createTaskSubItem(subItem: InsertTaskSubItem): Promise<TaskSubItem>;
+  getTaskSubItems(taskItemId: number): Promise<TaskSubItem[]>;
+  updateTaskSubItem(id: number, subItem: Partial<InsertTaskSubItem>): Promise<TaskSubItem | undefined>;
+  deleteTaskSubItem(id: number): Promise<void>;
+  
+  // Task Reviews & Authority System
+  createTaskReview(review: InsertTaskReview): Promise<TaskReview>;
+  getTaskReviews(taskId: number): Promise<(TaskReview & { reviewer: User; reviewee: User })[]>;
+  updateMemberAuthority(userId: string, reason: string, relatedTaskId?: number, relatedReviewId?: number): Promise<void>;
+  calculateMemberAuthorityScore(userId: string): Promise<number>;
+  
+  // Grace Period Requests
+  createGracePeriodRequest(request: InsertGracePeriodRequest): Promise<GracePeriodRequest>;
+  getGracePeriodRequests(userId: string): Promise<GracePeriodRequest[]>;
+  approveGracePeriodRequest(requestId: number, approverId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
