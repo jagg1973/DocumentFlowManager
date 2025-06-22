@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { Plus, Bell, FileText, Shield, Database, BarChart3, CheckCircle2, Clock, Calendar, Users } from "lucide-react";
+import { Plus, Bell, FileText, Shield, Database, BarChart3, CheckCircle2, Clock, Calendar, Users, LogOut } from "lucide-react";
 import ProjectCard from "@/components/ProjectCard";
 import { ProjectWithStats } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
