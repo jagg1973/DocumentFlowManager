@@ -179,7 +179,13 @@ export default function Dashboard() {
                         <FormItem>
                           <FormLabel>Project Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter project name..." {...field} className="glass-input" />
+                            <Input 
+                              placeholder="Enter project name..." 
+                              {...field} 
+                              className="glass-input"
+                              required
+                              minLength={1}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -189,14 +195,17 @@ export default function Dashboard() {
                       <Button 
                         type="button" 
                         variant="outline" 
-                        onClick={() => setCreateProjectOpen(false)}
+                        onClick={() => {
+                          setCreateProjectOpen(false);
+                          form.reset();
+                        }}
                         className="glass-button"
                       >
                         Cancel
                       </Button>
                       <Button 
                         type="submit" 
-                        disabled={createProjectMutation.isPending}
+                        disabled={createProjectMutation.isPending || !form.watch("projectName")?.trim()}
                         className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium"
                       >
                         {createProjectMutation.isPending ? "Creating..." : "Create Project"}

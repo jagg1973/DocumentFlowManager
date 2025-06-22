@@ -11,10 +11,16 @@ function LogoutButton() {
     <Button
       variant="outline"
       size="sm"
-      className="glass-button"
-      onClick={() => logoutMutation.mutate()}
+      className="glass-button text-red-600 hover:text-red-700"
+      onClick={() => {
+        // Clear local storage and redirect immediately
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = "/auth";
+      }}
       disabled={logoutMutation.isPending}
     >
+      <LogOut className="w-4 h-4 mr-2" />
       {logoutMutation.isPending ? "Logging out..." : "Logout"}
     </Button>
   );

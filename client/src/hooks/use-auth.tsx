@@ -123,32 +123,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // First clear local session data
+      // Clear local session data immediately
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
       
-      // Then call the server logout endpoint
+      // Call server logout endpoint
       try {
         await apiRequest("POST", "/api/auth/logout");
       } catch (error) {
-        // Even if server logout fails, we've cleared local data
         console.warn("Server logout failed, but local session cleared:", error);
       }
-    },
-    onSuccess: () => {
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      });
-      // Redirect to auth page
+      
+      // Force redirect immediately
       window.location.href = "/auth";
     },
-    onError: (error: Error) => {
-      // Still redirect even if there's an error
-      toast({
-        title: "Logged out",
-        description: "Session has been cleared.",
-      });
+    onSuccess: () => {
+      // Success handler - redirect already happens in mutationFn
+    },
+    onError: () => {
+      // Error handler - redirect already happens in mutationFn
       window.location.href = "/auth";
     },
   });

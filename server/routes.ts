@@ -149,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileExtension: "pdf",
         mimeType: "application/pdf",
         fileSize: 1024 * 1024, // 1MB demo size
-        category: req.body.category,
+        category: req.body.category || "Templates", // Ensure category is never null
         isPublic: req.body.isPublic === "true",
         uploadedBy: userId,
         tags: []

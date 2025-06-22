@@ -81,7 +81,7 @@ export default function AdminDocuments() {
     defaultValues: {
       title: "",
       description: "",
-      category: "",
+      category: "Templates",
       isPublic: true,
     },
   });
