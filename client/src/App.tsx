@@ -9,6 +9,11 @@ import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";
 import { ThemeProvider } from "@/components/theme-provider";
 import AdminDashboard from "@/pages/AdminDashboard";
 import ClientDocuments from "@/pages/ClientDocuments";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
+import AdminDocuments from "@/pages/AdminDocuments";
+import UserManagement from "@/pages/UserManagement";
+import Reports from "@/pages/Reports";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -25,8 +30,13 @@ function Router() {
     <Switch>
       <ProtectedRoute path="/" component={Dashboard} />
       <AdminRoute path="/admin" component={AdminDashboard} />
+      <AdminRoute path="/admin/documents" component={AdminDocuments} />
+      <AdminRoute path="/admin/users" component={UserManagement} />
+      <AdminRoute path="/admin/reports" component={Reports} />
       <ProtectedRoute path="/documents" component={ClientDocuments} />
       <Route path="/auth" component={AuthPage} />
+      <Route path="/privacy" component={PrivacyPolicy} />
+      <Route path="/terms" component={TermsOfService} />
       <Route component={NotFound} />
     </Switch>
   );
