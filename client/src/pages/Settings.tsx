@@ -79,7 +79,7 @@ export default function Settings() {
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: z.infer<typeof settingsSchema>) => {
-      const res = await apiRequest("PATCH", "/api/settings", data);
+      const res = await apiRequest("/api/settings", "PATCH", data);
       if (!res.ok) throw new Error('Failed to update settings');
       return res.json();
     },
