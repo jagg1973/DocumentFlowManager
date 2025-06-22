@@ -1,0 +1,70 @@
+ I need to build a full-featured, secure Document Management System (DMS) that integrates with an existing PHP-based "SEO Timeline Dashboard".
+
+Please generate the complete code for this system, including the backend logic (PHP), database schema (MySQL), and frontend pages (HTML/CSS/JS).
+
+The system should be divided into two main areas: an Admin Area for managing users and documents, and a Client Area where documents are presented within the existing project timeline interface.
+
+Here are the detailed requirements:
+
+1. Core Concepts & User Roles
+
+Users: The system must support different user roles with specific permissions.
+Roles:
+Admin: Full access. Can manage all users, projects, and documents.
+Project Manager: Can manage projects they are assigned to, including linking documents to tasks and managing project members.
+Client/Member: Can only view projects they are a member of and view/download the documents attached to tasks within those projects.
+Security: All actions must be permission-checked. A user should never be able to access a document or project they are not authorized for.
+2. Database Schema (MySQL)
+
+Please design and provide the SQL CREATE TABLE statements for the following tables:
+
+users: To store user details, including id, full_name, email, password_hash, and role (admin, manager, client).
+password_resets: To handle the "forgot password" functionality securely.
+dms_documents: To store metadata for each uploaded file, including a unique id, title, original_filename, disk_filename (a secure, non-guessable name), filepath, file_extension, mime_type, size, and uploaded_by_user_id.
+task_document_links: A pivot table to create a many-to-many relationship between tasks (from the existing tasks table) and documents in the dms_documents table. This is an improvement over storing a single link in the task itself.
+3. User Authentication System
+
+Create the following pages and backend logic:
+
+Login Page (login.php): A form for users to log in with email and password. Use PHP sessions for state management.
+Password Handling:
+Use password_hash() and password_verify() for secure password storage.
+Create a "Forgot Password" page and a "Reset Password" page that uses secure, expiring tokens.
+Logout (logout.php): A script to destroy the user's session.
+4. Admin Area (DMS Management)
+
+This should be a new, protected section of the site, accessible only to Admins and Project Managers.
+
+Dashboard (/admin/index.php): An overview page.
+Document Library (/admin/documents.php):
+Display all uploaded documents in a table with search, sort, and filter capabilities.
+Implement secure file uploads with validation (file type, size limits). Store uploaded files in a directory outside of the public web root for security.
+Implement full CRUD (Create, Read, Update, Delete) for documents. Deleting a document should also remove its links to any tasks.
+Document Linking Interface (The Improvement):
+When viewing a project's tasks in the admin area, provide an intuitive way to link documents.
+Instead of copy-pasting an ID, a "Link Document" button next to each task should open a modal.
+This modal should show the Document Library, allowing the admin to search for and select one or more documents to attach to that task.
+5. Backend API for Client Area Integration
+
+Create the necessary PHP API endpoints to support the existing JavaScript functionality.
+
+api/get_dms_document_info.php:
+Input: A document ID.
+Action:
+Verify that the currently logged-in user has permission to view the project associated with the document.
+If authorized, fetch the document's metadata from the dms_documents table.
+Return a JSON object with the document's title, original_filename, file_extension, and a link to a new api/serve_document.php script.
+api/serve_document.php:
+Input: A document ID.
+Action:
+Perform the same permission check as above.
+If authorized, read the file from its secure storage location (outside the web root) and stream it to the browser with the correct Content-Type and Content-Disposition headers. This prevents direct URL access to files.
+Update api/tasks.php and api/projects.php:
+Ensure all endpoints in these files include a session and permission check at the beginning to prevent unauthorized access or modifications.
+6. Frontend Integration (Client Area)
+
+Based on the provided project_timeline.js, the frontend logic for triggering the document preview is mostly in place. The main task is to ensure the triggerDmsModal function works with the new, secure API.
+
+Modify the openDmsDocumentPreview function in project_timeline.js to call the new api/get_dms_document_info.php.
+The triggerDmsModal function should then use the URL from the API response (pointing to api/serve_document.php?id=...) as the src for the iframe or the href for the download link.
+Please structure the final output with a clear file and folder hierarchy. Provide the code for each file separately."

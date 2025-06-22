@@ -8,7 +8,10 @@ import {
   insertProjectMemberSchema,
   insertTaskItemSchema,
   insertTaskReviewSchema,
-  insertGracePeriodRequestSchema 
+  insertGracePeriodRequestSchema,
+  insertDmsDocumentSchema,
+  insertTaskDocumentLinkSchema,
+  insertDocumentAccessSchema
 } from "@shared/schema";
 import { z } from "zod";
 import ExcelJS from "exceljs";
@@ -494,6 +497,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching grace period requests:", error);
       res.status(500).json({ message: "Failed to fetch grace period requests" });
+    }
+  });
+
+  // DMS Admin Routes
+  app.get('/api/admin/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || (user.userRole !== 'admin' && user.userRole !== 'manager')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const stats = await storage.getAdminStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      res.status(500).json({ message: "Failed to fetch admin stats" });
+    }
+  });
+
+  app.get('/api/admin/documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || (user.userRole !== 'admin' && user.userRole !== 'manager')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { search, category } = req.query;
+      const documents = await storage.getDocuments({
+        search: search as string,
+        category: category as string,
+      });
+      
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.post('/api/admin/documents/upload', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || (user.userRole !== 'admin' && user.userRole !== 'manager')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // For now, we'll create a mock document upload
+      // In a real implementation, you'd handle file uploads here
+      const documentData = insertDmsDocumentSchema.parse({
+        title: req.body.title,
+        description: req.body.description,
+        originalFilename: req.body.file?.name || 'document.pdf',
+        diskFilename: `doc_${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`,
+        filepath: `/uploads/documents/doc_${Date.now()}.pdf`,
+        fileExtension: 'pdf',
+        mimeType: 'application/pdf',
+        fileSize: 1024 * 1024, // 1MB mock size
+        category: req.body.category,
+        subcategory: req.body.subcategory,
+        tags: req.body.tags ? req.body.tags.split(',').map((t: string) => t.trim()) : [],
+        uploadedBy: userId,
+        isPublic: req.body.isPublic === 'on' || req.body.isPublic === 'true',
+      });
+      
+      const document = await storage.createDocument(documentData);
+      res.json(document);
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  app.delete('/api/admin/documents/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || (user.userRole !== 'admin' && user.userRole !== 'manager')) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      await storage.deleteDocument(documentId);
+      res.json({ message: "Document deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  app.get('/api/admin/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user || user.userRole !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      // Get all users (simplified for demo)
+      const users = [
+        { id: userId, firstName: user.firstName, lastName: user.lastName, email: user.email, userRole: user.userRole }
+      ];
+      
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // DMS Client Routes
+  app.get('/api/documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { search, category, filter } = req.query;
+      
+      // Get documents accessible to the user
+      const documents = await storage.getDocuments({
+        search: search as string,
+        category: category as string,
+        isPublic: true, // For now, only show public documents to clients
+      });
+      
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.get('/api/my-project-documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get user's projects
+      const projects = await storage.getProjectsForUser(userId);
+      const projectDocuments = [];
+      
+      for (const project of projects) {
+        const tasks = await storage.getTasksForProject(project.id);
+        for (const task of tasks) {
+          const documents = await storage.getTaskDocuments(task.id);
+          for (const document of documents) {
+            projectDocuments.push({
+              ...document,
+              projectName: project.projectName,
+              taskName: task.taskName,
+            });
+          }
+        }
+      }
+      
+      res.json(projectDocuments);
+    } catch (error) {
+      console.error("Error fetching project documents:", error);
+      res.status(500).json({ message: "Failed to fetch project documents" });
+    }
+  });
+
+  app.get('/api/documents/:id/download', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documentId = parseInt(req.params.id);
+      
+      // Check access permissions
+      const access = await storage.checkDocumentAccess(userId, documentId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const document = await storage.getDocument(documentId);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Increment download count
+      await storage.incrementDownloadCount(documentId);
+      
+      // In a real implementation, you'd serve the actual file
+      res.json({
+        message: "Document download initiated",
+        filename: document.originalFilename,
+        size: document.fileSize,
+      });
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      res.status(500).json({ message: "Failed to download document" });
+    }
+  });
+
+  // Document-Task Linking Routes
+  app.post('/api/tasks/:taskId/documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taskId = parseInt(req.params.taskId);
+      const { documentId } = req.body;
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const access = await storage.checkUserProjectAccess(userId, task.projectId);
+      if (!access.hasAccess || access.permission !== 'edit') {
+        return res.status(403).json({ message: "Edit permission required" });
+      }
+      
+      const linkData = insertTaskDocumentLinkSchema.parse({
+        taskId,
+        documentId,
+        linkedBy: userId,
+      });
+      
+      const link = await storage.linkDocumentToTask(linkData);
+      res.json(link);
+    } catch (error) {
+      console.error("Error linking document to task:", error);
+      res.status(500).json({ message: "Failed to link document to task" });
+    }
+  });
+
+  app.get('/api/tasks/:taskId/documents', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const taskId = parseInt(req.params.taskId);
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const access = await storage.checkUserProjectAccess(userId, task.projectId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const documents = await storage.getTaskDocuments(taskId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching task documents:", error);
+      res.status(500).json({ message: "Failed to fetch task documents" });
     }
   });
 

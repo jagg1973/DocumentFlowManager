@@ -8,6 +8,9 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import ProjectTimeline from "@/pages/ProjectTimeline";
+import AdminDashboard from "@/pages/AdminDashboard";
+import DocumentLibrary from "@/pages/DocumentLibrary";
+import ClientDocuments from "@/pages/ClientDocuments";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -20,6 +23,9 @@ function Router() {
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/project/:id" component={ProjectTimeline} />
+          <Route path="/admin" component={AdminDashboard} />
+          <Route path="/admin/documents" component={DocumentLibrary} />
+          <Route path="/documents" component={ClientDocuments} />
         </>
       )}
       <Route component={NotFound} />

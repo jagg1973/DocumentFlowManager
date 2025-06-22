@@ -8,6 +8,10 @@ import {
   taskReviews,
   authorityHistory,
   gracePeriodRequests,
+  dmsDocuments,
+  taskDocumentLinks,
+  documentAccess,
+  documentVersions,
   type User,
   type UpsertUser,
   type Project,
@@ -25,6 +29,14 @@ import {
   type AuthorityHistory,
   type GracePeriodRequest,
   type InsertGracePeriodRequest,
+  type DmsDocument,
+  type InsertDmsDocument,
+  type TaskDocumentLink,
+  type InsertTaskDocumentLink,
+  type DocumentAccess,
+  type InsertDocumentAccess,
+  type DocumentVersion,
+  type InsertDocumentVersion,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, asc, or, ilike } from "drizzle-orm";
@@ -80,6 +92,41 @@ export interface IStorage {
   createGracePeriodRequest(request: InsertGracePeriodRequest): Promise<GracePeriodRequest>;
   getGracePeriodRequests(userId: string): Promise<GracePeriodRequest[]>;
   approveGracePeriodRequest(requestId: number, approverId: string): Promise<void>;
+  
+  // DMS Document Management
+  createDocument(document: InsertDmsDocument): Promise<DmsDocument>;
+  getDocument(id: number): Promise<DmsDocument | undefined>;
+  getDocuments(filters?: { search?: string; category?: string; userId?: string; isPublic?: boolean }): Promise<(DmsDocument & { uploader: User })[]>;
+  updateDocument(id: number, document: Partial<InsertDmsDocument>): Promise<DmsDocument | undefined>;
+  deleteDocument(id: number): Promise<void>;
+  incrementDownloadCount(id: number): Promise<void>;
+  
+  // Document-Task Linking
+  linkDocumentToTask(link: InsertTaskDocumentLink): Promise<TaskDocumentLink>;
+  unlinkDocumentFromTask(linkId: number): Promise<void>;
+  getTaskDocuments(taskId: number): Promise<(DmsDocument & { uploader: User })[]>;
+  getDocumentTasks(documentId: number): Promise<(Task & { project: Project })[]>;
+  
+  // Document Access Control
+  grantDocumentAccess(access: InsertDocumentAccess): Promise<DocumentAccess>;
+  revokeDocumentAccess(accessId: number): Promise<void>;
+  checkDocumentAccess(userId: string, documentId: number): Promise<{ hasAccess: boolean; accessType?: string }>;
+  
+  // Document Versions
+  createDocumentVersion(version: InsertDocumentVersion): Promise<DocumentVersion>;
+  getDocumentVersions(documentId: number): Promise<(DocumentVersion & { uploader: User })[]>;
+  
+  // Admin Statistics
+  getAdminStats(): Promise<{
+    totalDocuments: number;
+    totalUsers: number;
+    totalDownloads: number;
+    storageUsed: string;
+    newDocumentsThisWeek: number;
+    newUsersThisWeek: number;
+    downloadsThisWeek: number;
+    storagePercentage: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -407,6 +454,328 @@ export class DatabaseStorage implements IStorage {
         approvedAt: new Date(),
       })
       .where(eq(gracePeriodRequests.id, requestId));
+  }
+
+  // DMS Document Management Implementation
+  async createDocument(document: InsertDmsDocument): Promise<DmsDocument> {
+    const [newDocument] = await this.db
+      .insert(dmsDocuments)
+      .values(document)
+      .returning();
+    return newDocument;
+  }
+
+  async getDocument(id: number): Promise<DmsDocument | undefined> {
+    const [document] = await this.db
+      .select()
+      .from(dmsDocuments)
+      .where(eq(dmsDocuments.id, id));
+    return document;
+  }
+
+  async getDocuments(filters?: { search?: string; category?: string; userId?: string; isPublic?: boolean }): Promise<(DmsDocument & { uploader: User })[]> {
+    let query = this.db
+      .select({
+        id: dmsDocuments.id,
+        title: dmsDocuments.title,
+        description: dmsDocuments.description,
+        originalFilename: dmsDocuments.originalFilename,
+        diskFilename: dmsDocuments.diskFilename,
+        filepath: dmsDocuments.filepath,
+        fileExtension: dmsDocuments.fileExtension,
+        mimeType: dmsDocuments.mimeType,
+        fileSize: dmsDocuments.fileSize,
+        category: dmsDocuments.category,
+        subcategory: dmsDocuments.subcategory,
+        tags: dmsDocuments.tags,
+        uploadedBy: dmsDocuments.uploadedBy,
+        isPublic: dmsDocuments.isPublic,
+        downloadCount: dmsDocuments.downloadCount,
+        createdAt: dmsDocuments.createdAt,
+        updatedAt: dmsDocuments.updatedAt,
+        uploader: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          profileImageUrl: users.profileImageUrl,
+        }
+      })
+      .from(dmsDocuments)
+      .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id));
+
+    if (filters?.search) {
+      query = query.where(
+        or(
+          ilike(dmsDocuments.title, `%${filters.search}%`),
+          ilike(dmsDocuments.description, `%${filters.search}%`)
+        )
+      );
+    }
+
+    if (filters?.category) {
+      query = query.where(eq(dmsDocuments.category, filters.category));
+    }
+
+    if (filters?.userId) {
+      query = query.where(eq(dmsDocuments.uploadedBy, filters.userId));
+    }
+
+    if (filters?.isPublic !== undefined) {
+      query = query.where(eq(dmsDocuments.isPublic, filters.isPublic));
+    }
+
+    const results = await query.orderBy(desc(dmsDocuments.createdAt));
+    return results.map(row => ({
+      ...row,
+      uploader: {
+        ...row.uploader,
+        firstName: row.uploader.firstName || "",
+        lastName: row.uploader.lastName || "",
+      }
+    })) as (DmsDocument & { uploader: User })[];
+  }
+
+  async updateDocument(id: number, document: Partial<InsertDmsDocument>): Promise<DmsDocument | undefined> {
+    const [updated] = await this.db
+      .update(dmsDocuments)
+      .set({ ...document, updatedAt: new Date() })
+      .where(eq(dmsDocuments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDocument(id: number): Promise<void> {
+    await this.db.delete(taskDocumentLinks).where(eq(taskDocumentLinks.documentId, id));
+    await this.db.delete(documentAccess).where(eq(documentAccess.documentId, id));
+    await this.db.delete(documentVersions).where(eq(documentVersions.documentId, id));
+    await this.db.delete(dmsDocuments).where(eq(dmsDocuments.id, id));
+  }
+
+  async incrementDownloadCount(id: number): Promise<void> {
+    await this.db
+      .update(dmsDocuments)
+      .set({ downloadCount: sql`${dmsDocuments.downloadCount} + 1` })
+      .where(eq(dmsDocuments.id, id));
+  }
+
+  async linkDocumentToTask(link: InsertTaskDocumentLink): Promise<TaskDocumentLink> {
+    const [newLink] = await this.db
+      .insert(taskDocumentLinks)
+      .values(link)
+      .returning();
+    return newLink;
+  }
+
+  async unlinkDocumentFromTask(linkId: number): Promise<void> {
+    await this.db
+      .delete(taskDocumentLinks)
+      .where(eq(taskDocumentLinks.id, linkId));
+  }
+
+  async getTaskDocuments(taskId: number): Promise<(DmsDocument & { uploader: User })[]> {
+    const results = await this.db
+      .select({
+        id: dmsDocuments.id,
+        title: dmsDocuments.title,
+        description: dmsDocuments.description,
+        originalFilename: dmsDocuments.originalFilename,
+        diskFilename: dmsDocuments.diskFilename,
+        filepath: dmsDocuments.filepath,
+        fileExtension: dmsDocuments.fileExtension,
+        mimeType: dmsDocuments.mimeType,
+        fileSize: dmsDocuments.fileSize,
+        category: dmsDocuments.category,
+        subcategory: dmsDocuments.subcategory,
+        tags: dmsDocuments.tags,
+        uploadedBy: dmsDocuments.uploadedBy,
+        isPublic: dmsDocuments.isPublic,
+        downloadCount: dmsDocuments.downloadCount,
+        createdAt: dmsDocuments.createdAt,
+        updatedAt: dmsDocuments.updatedAt,
+        uploader: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          profileImageUrl: users.profileImageUrl,
+        }
+      })
+      .from(taskDocumentLinks)
+      .innerJoin(dmsDocuments, eq(taskDocumentLinks.documentId, dmsDocuments.id))
+      .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id))
+      .where(eq(taskDocumentLinks.taskId, taskId));
+
+    return results.map(row => ({
+      ...row,
+      uploader: {
+        ...row.uploader,
+        firstName: row.uploader.firstName || "",
+        lastName: row.uploader.lastName || "",
+      }
+    })) as (DmsDocument & { uploader: User })[];
+  }
+
+  async getDocumentTasks(documentId: number): Promise<(Task & { project: Project })[]> {
+    const results = await this.db
+      .select({
+        id: tasks.id,
+        projectId: tasks.projectId,
+        taskName: tasks.taskName,
+        description: tasks.description,
+        status: tasks.status,
+        priority: tasks.priority,
+        pillar: tasks.pillar,
+        phase: tasks.phase,
+        assignedToId: tasks.assignedToId,
+        startDate: tasks.startDate,
+        endDate: tasks.endDate,
+        estimatedHours: tasks.estimatedHours,
+        actualHours: tasks.actualHours,
+        progressPercentage: tasks.progressPercentage,
+        createdAt: tasks.createdAt,
+        updatedAt: tasks.updatedAt,
+        project: {
+          id: projects.id,
+          projectName: projects.projectName,
+          description: projects.description,
+          status: projects.status,
+          ownerId: projects.ownerId,
+          createdAt: projects.createdAt,
+          updatedAt: projects.updatedAt,
+        }
+      })
+      .from(taskDocumentLinks)
+      .innerJoin(tasks, eq(taskDocumentLinks.taskId, tasks.id))
+      .innerJoin(projects, eq(tasks.projectId, projects.id))
+      .where(eq(taskDocumentLinks.documentId, documentId));
+
+    return results as (Task & { project: Project })[];
+  }
+
+  async grantDocumentAccess(access: InsertDocumentAccess): Promise<DocumentAccess> {
+    const [newAccess] = await this.db
+      .insert(documentAccess)
+      .values(access)
+      .returning();
+    return newAccess;
+  }
+
+  async revokeDocumentAccess(accessId: number): Promise<void> {
+    await this.db
+      .delete(documentAccess)
+      .where(eq(documentAccess.id, accessId));
+  }
+
+  async checkDocumentAccess(userId: string, documentId: number): Promise<{ hasAccess: boolean; accessType?: string }> {
+    const [document] = await this.db
+      .select({ isPublic: dmsDocuments.isPublic, uploadedBy: dmsDocuments.uploadedBy })
+      .from(dmsDocuments)
+      .where(eq(dmsDocuments.id, documentId));
+
+    if (!document) return { hasAccess: false };
+    if (document.uploadedBy === userId) return { hasAccess: true, accessType: "edit" };
+    if (document.isPublic) return { hasAccess: true, accessType: "view" };
+
+    const [access] = await this.db
+      .select({ accessType: documentAccess.accessType })
+      .from(documentAccess)
+      .where(and(eq(documentAccess.documentId, documentId), eq(documentAccess.userId, userId)));
+
+    return access ? { hasAccess: true, accessType: access.accessType } : { hasAccess: false };
+  }
+
+  async createDocumentVersion(version: InsertDocumentVersion): Promise<DocumentVersion> {
+    const [newVersion] = await this.db
+      .insert(documentVersions)
+      .values(version)
+      .returning();
+    return newVersion;
+  }
+
+  async getDocumentVersions(documentId: number): Promise<(DocumentVersion & { uploader: User })[]> {
+    const results = await this.db
+      .select({
+        id: documentVersions.id,
+        documentId: documentVersions.documentId,
+        versionNumber: documentVersions.versionNumber,
+        originalFilename: documentVersions.originalFilename,
+        diskFilename: documentVersions.diskFilename,
+        filepath: documentVersions.filepath,
+        fileSize: documentVersions.fileSize,
+        uploadedBy: documentVersions.uploadedBy,
+        changeNotes: documentVersions.changeNotes,
+        createdAt: documentVersions.createdAt,
+        uploader: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+          profileImageUrl: users.profileImageUrl,
+        }
+      })
+      .from(documentVersions)
+      .leftJoin(users, eq(documentVersions.uploadedBy, users.id))
+      .where(eq(documentVersions.documentId, documentId))
+      .orderBy(desc(documentVersions.versionNumber));
+
+    return results.map(row => ({
+      ...row,
+      uploader: {
+        ...row.uploader,
+        firstName: row.uploader.firstName || "",
+        lastName: row.uploader.lastName || "",
+      }
+    })) as (DocumentVersion & { uploader: User })[];
+  }
+
+  async getAdminStats(): Promise<{
+    totalDocuments: number;
+    totalUsers: number;
+    totalDownloads: number;
+    storageUsed: string;
+    newDocumentsThisWeek: number;
+    newUsersThisWeek: number;
+    downloadsThisWeek: number;
+    storagePercentage: number;
+  }> {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const [docStats] = await this.db
+      .select({
+        totalDocuments: sql<number>`count(*)`,
+        totalDownloads: sql<number>`sum(${dmsDocuments.downloadCount})`,
+        totalSize: sql<number>`sum(${dmsDocuments.fileSize})`,
+        newThisWeek: sql<number>`count(case when ${dmsDocuments.createdAt} > ${weekAgo} then 1 end)`
+      })
+      .from(dmsDocuments);
+
+    const [userStats] = await this.db
+      .select({
+        totalUsers: sql<number>`count(*)`,
+        newThisWeek: sql<number>`count(case when ${users.createdAt} > ${weekAgo} then 1 end)`
+      })
+      .from(users);
+
+    const formatBytes = (bytes: number) => {
+      if (bytes === 0) return "0 MB";
+      const k = 1024;
+      const sizes = ["Bytes", "KB", "MB", "GB"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    };
+
+    return {
+      totalDocuments: docStats?.totalDocuments || 0,
+      totalUsers: userStats?.totalUsers || 0,
+      totalDownloads: docStats?.totalDownloads || 0,
+      storageUsed: formatBytes(docStats?.totalSize || 0),
+      newDocumentsThisWeek: docStats?.newThisWeek || 0,
+      newUsersThisWeek: userStats?.newThisWeek || 0,
+      downloadsThisWeek: 0,
+      storagePercentage: Math.min((docStats?.totalSize || 0) / (1024 * 1024 * 1024) * 100, 100),
+    };
   }
 }
 

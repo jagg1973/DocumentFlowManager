@@ -24,6 +24,20 @@ export const statusEnum = pgEnum("status", ["Not Started", "In Progress", "Compl
 export const memberLevelEnum = pgEnum("member_level", ["C-Level", "Manager", "SEO Lead", "SEO Specialist", "Junior", "Intern"]);
 export const reviewTypeEnum = pgEnum("review_type", ["thumbs_up", "thumbs_down", "star_rating", "detailed_review"]);
 export const itemStatusEnum = pgEnum("item_status", ["pending", "in_progress", "completed", "rejected"]);
+export const userRoleEnum = pgEnum("user_role", ["admin", "manager", "client"]);
+export const documentCategoryEnum = pgEnum("document_category", [
+  "Executive Summary",
+  "Strategic Implementation", 
+  "Expert Guidelines",
+  "Essential Considerations",
+  "Ongoing Management",
+  "SEO Email Synergy",
+  "SEO Social Media Synergy",
+  "SEO Press Release Synergy",
+  "SEO PPC Synergy",
+  "Templates",
+  "Checklists"
+]);
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -48,6 +62,7 @@ export const users = pgTable("users", {
   experienceScore: integer("experience_score").default(50), // E1: Experience
   expertiseScore: integer("expertise_score").default(50), // E2: Expertise  
   authorityScore: integer("authority_score").default(50), // A: Authority
+  userRole: userRoleEnum("user_role").default("client"), // DMS Role
   trustScore: integer("trust_score").default(50), // T: Trustworthiness
   tasksCompleted: integer("tasks_completed").default(0),
   averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0.00"),
@@ -273,6 +288,82 @@ export const gracePeriodRequestsRelations = relations(gracePeriodRequests, ({ on
   }),
 }));
 
+// DMS Document Management Tables
+export const dmsDocuments = pgTable("dms_documents", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  originalFilename: varchar("original_filename", { length: 255 }).notNull(),
+  diskFilename: varchar("disk_filename", { length: 255 }).notNull(),
+  filepath: varchar("filepath", { length: 500 }).notNull(),
+  fileExtension: varchar("file_extension", { length: 10 }).notNull(),
+  mimeType: varchar("mime_type", { length: 100 }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  category: documentCategoryEnum("category").notNull(),
+  subcategory: varchar("subcategory", { length: 255 }),
+  tags: text("tags").array(),
+  uploadedBy: varchar("uploaded_by").notNull(),
+  isPublic: boolean("is_public").default(false),
+  downloadCount: integer("download_count").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const taskDocumentLinks = pgTable("task_document_links", {
+  id: serial("id").primaryKey(),
+  taskId: integer("task_id").notNull(),
+  documentId: integer("document_id").notNull(),
+  linkedBy: varchar("linked_by").notNull(),
+  linkedAt: timestamp("linked_at").defaultNow().notNull(),
+});
+
+export const documentAccess = pgTable("document_access", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  accessType: permissionEnum("access_type").notNull(),
+  grantedBy: varchar("granted_by").notNull(),
+  grantedAt: timestamp("granted_at").defaultNow().notNull(),
+});
+
+export const documentVersions = pgTable("document_versions", {
+  id: serial("id").primaryKey(),
+  documentId: integer("document_id").notNull(),
+  versionNumber: integer("version_number").notNull(),
+  originalFilename: varchar("original_filename", { length: 255 }).notNull(),
+  diskFilename: varchar("disk_filename", { length: 255 }).notNull(),
+  filepath: varchar("filepath", { length: 500 }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  uploadedBy: varchar("uploaded_by").notNull(),
+  changeNotes: text("change_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// DMS Relations
+export const dmsDocumentsRelations = relations(dmsDocuments, ({ one, many }) => ({
+  uploader: one(users, { fields: [dmsDocuments.uploadedBy], references: [users.id] }),
+  taskLinks: many(taskDocumentLinks),
+  accessPermissions: many(documentAccess),
+  versions: many(documentVersions),
+}));
+
+export const taskDocumentLinksRelations = relations(taskDocumentLinks, ({ one }) => ({
+  task: one(tasks, { fields: [taskDocumentLinks.taskId], references: [tasks.id] }),
+  document: one(dmsDocuments, { fields: [taskDocumentLinks.documentId], references: [dmsDocuments.id] }),
+  linkedByUser: one(users, { fields: [taskDocumentLinks.linkedBy], references: [users.id] }),
+}));
+
+export const documentAccessRelations = relations(documentAccess, ({ one }) => ({
+  document: one(dmsDocuments, { fields: [documentAccess.documentId], references: [dmsDocuments.id] }),
+  user: one(users, { fields: [documentAccess.userId], references: [users.id] }),
+  grantedByUser: one(users, { fields: [documentAccess.grantedBy], references: [users.id] }),
+}));
+
+export const documentVersionsRelations = relations(documentVersions, ({ one }) => ({
+  document: one(dmsDocuments, { fields: [documentVersions.documentId], references: [dmsDocuments.id] }),
+  uploader: one(users, { fields: [documentVersions.uploadedBy], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
@@ -331,3 +422,35 @@ export type InsertTaskReview = z.infer<typeof insertTaskReviewSchema>;
 export type AuthorityHistory = typeof authorityHistory.$inferSelect;
 export type GracePeriodRequest = typeof gracePeriodRequests.$inferSelect;
 export type InsertGracePeriodRequest = z.infer<typeof insertGracePeriodRequestSchema>;
+
+// DMS Schema Types
+export const insertDmsDocumentSchema = createInsertSchema(dmsDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  downloadCount: true,
+});
+
+export const insertTaskDocumentLinkSchema = createInsertSchema(taskDocumentLinks).omit({
+  id: true,
+  linkedAt: true,
+});
+
+export const insertDocumentAccessSchema = createInsertSchema(documentAccess).omit({
+  id: true,
+  grantedAt: true,
+});
+
+export const insertDocumentVersionSchema = createInsertSchema(documentVersions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type DmsDocument = typeof dmsDocuments.$inferSelect;
+export type InsertDmsDocument = z.infer<typeof insertDmsDocumentSchema>;
+export type TaskDocumentLink = typeof taskDocumentLinks.$inferSelect;
+export type InsertTaskDocumentLink = z.infer<typeof insertTaskDocumentLinkSchema>;
+export type DocumentAccess = typeof documentAccess.$inferSelect;
+export type InsertDocumentAccess = z.infer<typeof insertDocumentAccessSchema>;
+export type DocumentVersion = typeof documentVersions.$inferSelect;
+export type InsertDocumentVersion = z.infer<typeof insertDocumentVersionSchema>;
