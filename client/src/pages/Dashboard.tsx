@@ -44,9 +44,12 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
 
-  const { data: projects, isLoading: projectsLoading, error } = useQuery<ProjectWithStats[]>({
+  const { data: projects, isLoading: projectsLoading, error, refetch: refetchProjects } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
     enabled: !!user,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   // Calculate stats
@@ -71,8 +74,12 @@ export default function Dashboard() {
         title: "Success",
         description: "Project created successfully",
       });
-      // Force refresh projects list
+      
+      // Multiple strategies to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.removeQueries({ queryKey: ["/api/projects"] });
+      refetchProjects();
+      
       setCreateProjectOpen(false);
       form.reset();
     },
