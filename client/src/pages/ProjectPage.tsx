@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useParams } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { ArrowLeft, Calendar, User, FileText } from "lucide-react";
 import { Link } from "wouter";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import AddTaskModal from "@/components/AddTaskModal";
 
 interface Project {
   id: number;
@@ -28,6 +30,8 @@ interface Task {
 
 export default function ProjectPage() {
   const { id } = useParams();
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: project, isLoading: projectLoading } = useQuery<Project>({
     queryKey: [`/api/projects/${id}`],
@@ -36,6 +40,14 @@ export default function ProjectPage() {
   const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: [`/api/projects/${id}/tasks`],
   });
+
+  const { data: members } = useQuery({
+    queryKey: [`/api/projects/${id}/members`],
+  });
+
+  const handleTaskCreated = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/projects/${id}/tasks`] });
+  };
 
   if (projectLoading || tasksLoading) {
     return (
@@ -109,7 +121,10 @@ export default function ProjectPage() {
                 </div>
               </div>
               <div className="flex space-x-2">
-                <Button className="glass-button-primary">
+                <Button 
+                  className="glass-button-primary"
+                  onClick={() => setShowAddTaskModal(true)}
+                >
                   <FileText className="w-4 h-4 mr-2" />
                   Add Task
                 </Button>
@@ -159,7 +174,10 @@ export default function ProjectPage() {
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No tasks yet</h3>
                   <p className="text-gray-600 dark:text-gray-300 mb-4">Get started by creating your first task for this project.</p>
-                  <Button className="glass-button-primary">
+                  <Button 
+                    className="glass-button-primary"
+                    onClick={() => setShowAddTaskModal(true)}
+                  >
                     <FileText className="w-4 h-4 mr-2" />
                     Create First Task
                   </Button>
@@ -171,6 +189,16 @@ export default function ProjectPage() {
       </div>
       
       <Footer />
+      
+      {/* Add Task Modal */}
+      {showAddTaskModal && (
+        <AddTaskModal
+          projectId={parseInt(id as string)}
+          members={members}
+          onClose={() => setShowAddTaskModal(false)}
+          onTaskCreated={handleTaskCreated}
+        />
+      )}
     </div>
   );
 }
