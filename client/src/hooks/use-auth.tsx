@@ -15,6 +15,7 @@ type AuthContextType = {
   loginMutation: UseMutationResult<User, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<User, Error, RegisterData>;
+  forgotPasswordMutation: UseMutationResult<any, Error, { email: string }>;
 };
 
 type LoginData = {
@@ -69,6 +70,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Welcome back!",
         description: `Hello ${user.firstName}, you're now logged in.`,
       });
+      // Redirect based on user role
+      setTimeout(() => {
+        if (user.email === "jaguzman123@hotmail.com") {
+          window.location.href = "/admin";
+        } else {
+          window.location.href = "/";
+        }
+      }, 1000);
     },
     onError: (error: Error) => {
       toast({
@@ -94,6 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Welcome!",
         description: `Account created successfully. Welcome ${user.firstName}!`,
       });
+      // Redirect based on user role
+      setTimeout(() => {
+        if (user.email === "jaguzman123@hotmail.com") {
+          window.location.href = "/admin";
+        } else {
+          window.location.href = "/";
+        }
+      }, 1000);
     },
     onError: (error: Error) => {
       toast({
@@ -115,10 +132,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Logged out",
         description: "You have been successfully logged out.",
       });
+      window.location.href = "/auth";
     },
     onError: (error: Error) => {
       toast({
         title: "Logout failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (email: { email: string }) => {
+      const res = await apiRequest("POST", "/api/auth/forgot-password", email);
+      if (!res.ok) {
+        const errorData = await res.text();
+        throw new Error(errorData || 'Failed to send reset email');
+      }
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Reset email sent",
+        description: "If an account with that email exists, a reset link has been sent.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to send reset email",
         description: error.message,
         variant: "destructive",
       });
@@ -134,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginMutation,
         logoutMutation,
         registerMutation,
+        forgotPasswordMutation,
       }}
     >
       {children}

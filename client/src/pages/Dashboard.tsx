@@ -17,6 +17,7 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import Footer from "@/components/Footer";
 
 function LogoutButton() {
   const { logoutMutation } = useAuth();
@@ -45,7 +46,7 @@ export default function Dashboard() {
 
   const { data: projects, isLoading: projectsLoading, error } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
-    enabled: isAuthenticated,
+    enabled: !!user,
   });
 
   // Calculate stats
@@ -98,7 +99,7 @@ export default function Dashboard() {
     createProjectMutation.mutate(data);
   };
 
-  if (!isAuthenticated || isLoading) {
+  if (!user) {
     return null;
   }
 
