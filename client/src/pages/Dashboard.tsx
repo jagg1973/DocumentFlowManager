@@ -149,7 +149,7 @@ export default function Dashboard() {
           <div className="flex space-x-3">
             <Dialog open={createProjectOpen} onOpenChange={setCreateProjectOpen}>
               <DialogTrigger asChild>
-                <Button className="glass-button">
+                <Button className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium shadow-lg hover:shadow-xl">
                   <Plus className="w-4 h-4 mr-2" />
                   New Project
                 </Button>
@@ -185,7 +185,7 @@ export default function Dashboard() {
                       <Button 
                         type="submit" 
                         disabled={createProjectMutation.isPending}
-                        className="glass-button"
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium"
                       >
                         {createProjectMutation.isPending ? "Creating..." : "Create Project"}
                       </Button>
@@ -356,7 +356,7 @@ export default function Dashboard() {
               </div>
               <Button 
                 onClick={() => setCreateProjectOpen(true)} 
-                className="glass-button"
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-medium shadow-lg hover:shadow-xl"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create Your First Project

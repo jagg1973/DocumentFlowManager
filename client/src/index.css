@@ -187,6 +187,26 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
+/* Fix blue buttons becoming white on hover */
+.glass-button.bg-blue-500:hover,
+.glass-button.bg-blue-600:hover,
+.glass-button.bg-gradient-to-r:hover {
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9)) !important;
+  color: white !important;
+}
+
+/* Improved card hover effects */
+.glass-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
 .glass-input {
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(10px);
@@ -241,19 +261,22 @@
   border-radius: 8px;
 }
 
-/* Specular Highlight Effect */
+/* Specular Highlight Effect - Fixed for Better Readability */
 .specular-highlight {
   background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.3) 0%,
-    rgba(255, 255, 255, 0.1) 25%,
-    transparent 50%,
-    rgba(255, 255, 255, 0.1) 75%,
-    rgba(255, 255, 255, 0.3) 100%);
+    #1f2937 0%,
+    #374151 25%,
+    #4b5563 50%,
+    #374151 75%,
+    #1f2937 100%);
   background-clip: text;
   -webkit-background-clip: text;
-  color: transparent;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  font-weight: 600;
+  color: #1f2937;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
   .old-glass-card {

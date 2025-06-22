@@ -49,7 +49,7 @@ export default function ClientDocuments() {
   const { user } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
 
   // Fetch documents available to client
@@ -58,7 +58,7 @@ export default function ClientDocuments() {
     queryFn: () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
-      if (selectedCategory) params.append("category", selectedCategory);
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
       if (activeTab !== "all") params.append("filter", activeTab);
       return fetch(`/api/documents?${params}`).then(res => res.json());
     },
@@ -166,7 +166,7 @@ export default function ClientDocuments() {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {categories.map((category) => (
                     <SelectItem key={category} value={category}>
                       {category}

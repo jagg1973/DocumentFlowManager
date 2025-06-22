@@ -59,7 +59,7 @@ export default function DocumentLibrary() {
   const queryClient = useQueryClient();
   
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -70,7 +70,7 @@ export default function DocumentLibrary() {
     queryFn: () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
-      if (selectedCategory) params.append("category", selectedCategory);
+      if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
       return fetch(`/api/admin/documents?${params}`).then(res => res.json());
     },
   });

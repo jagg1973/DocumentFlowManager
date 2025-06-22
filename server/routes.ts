@@ -644,13 +644,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/documents', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       const { search, category, filter } = req.query;
       
-      // Get documents accessible to the user
+      // Admin and manager users can see all documents, clients see only public ones
+      const isAdminOrManager = user && (user.userRole === 'admin' || user.userRole === 'manager');
+      
       const documents = await storage.getDocuments({
         search: search as string,
         category: category as string,
-        isPublic: true, // For now, only show public documents to clients
+        isPublic: isAdminOrManager ? undefined : true, // Admin sees all, clients see only public
       });
       
       res.json(documents);
