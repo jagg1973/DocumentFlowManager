@@ -285,6 +285,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: 'ok' });
   });
 
+  // Settings endpoint
+  app.get('/api/settings', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      // Return user settings (demo data)
+      res.json({
+        notifications: {
+          email: true,
+          desktop: false,
+          mobile: true
+        },
+        preferences: {
+          theme: 'light',
+          language: 'en',
+          timezone: 'UTC'
+        },
+        privacy: {
+          profileVisibility: 'private',
+          dataSharing: false
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.patch('/api/settings', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      // In a real implementation, save settings to database
+      res.json({ success: true, message: "Settings updated successfully" });
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

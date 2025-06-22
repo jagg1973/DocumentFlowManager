@@ -34,8 +34,23 @@ export default function Reports() {
   });
 
   const downloadReport = (format: string) => {
-    // In a real implementation, this would generate and download a report
-    console.log(`Downloading ${reportType} report in ${format} format`);
+    // Generate a mock report download
+    const data = {
+      reportType,
+      timeRange,
+      generatedAt: new Date().toISOString(),
+      data: reportData
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${reportType}-report-${timeRange}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (

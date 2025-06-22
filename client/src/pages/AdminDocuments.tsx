@@ -103,7 +103,8 @@ export default function AdminDocuments() {
       });
 
       if (!res.ok) {
-        throw new Error("Upload failed");
+        const errorText = await res.text();
+        throw new Error(errorText || "Upload failed");
       }
 
       return res.json();
@@ -131,7 +132,10 @@ export default function AdminDocuments() {
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
       const res = await apiRequest("DELETE", `/api/admin/documents/${documentId}`);
-      if (!res.ok) throw new Error("Delete failed");
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Delete failed");
+      }
       return res.json();
     },
     onSuccess: () => {

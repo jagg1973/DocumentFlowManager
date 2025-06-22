@@ -64,7 +64,12 @@ export default function Dashboard() {
 
   const createProjectMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createProjectSchema>) => {
-      await apiRequest("POST", "/api/projects", data);
+      const res = await apiRequest("POST", "/api/projects", data);
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to create project');
+      }
+      return res.json();
     },
     onSuccess: () => {
       toast({
@@ -89,7 +94,7 @@ export default function Dashboard() {
       }
       toast({
         title: "Error",
-        description: "Failed to create project",
+        description: error.message || "Failed to create project",
         variant: "destructive",
       });
     },

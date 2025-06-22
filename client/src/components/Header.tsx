@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { FileText, Shield, Database, Menu, X } from "lucide-react";
+import { FileText, Shield, Database, Menu, X, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 
@@ -57,6 +57,12 @@ export default function Header() {
                 </Button>
               </Link>
             )}
+            <Link href="/settings">
+              <Button variant="ghost" size="sm" className="glass-button">
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Button>
+            </Link>
             <LogoutButton />
           </nav>
 
@@ -89,6 +95,12 @@ export default function Header() {
                   </Button>
                 </Link>
               )}
+              <Link href="/settings">
+                <Button variant="outline" className="w-full glass-button justify-start">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </Link>
               <LogoutButton />
             </nav>
           </div>

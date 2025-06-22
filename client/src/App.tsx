@@ -14,6 +14,7 @@ import TermsOfService from "@/pages/TermsOfService";
 import AdminDocuments from "@/pages/AdminDocuments";
 import UserManagement from "@/pages/UserManagement";
 import Reports from "@/pages/Reports";
+import Settings from "@/pages/Settings";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -34,6 +35,7 @@ function Router() {
       <AdminRoute path="/admin/users" component={UserManagement} />
       <AdminRoute path="/admin/reports" component={Reports} />
       <ProtectedRoute path="/documents" component={ClientDocuments} />
+      <ProtectedRoute path="/settings" component={Settings} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/privacy" component={PrivacyPolicy} />
       <Route path="/terms" component={TermsOfService} />
