@@ -54,7 +54,7 @@ export default function AddTaskModal({
       taskName: "",
       pillar: "Technical SEO",
       phase: "Foundation", 
-      assignedToId: "",
+      assignedToId: "unassigned",
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       description: "",
@@ -64,12 +64,7 @@ export default function AddTaskModal({
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: z.infer<typeof addTaskSchema>) => {
-      const res = await apiRequest("POST", `/api/projects/${projectId}/tasks`, data);
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to create task');
-      }
-      return res.json();
+      return apiRequest(`/api/projects/${projectId}/tasks`, "POST", data);
     },
     onSuccess: () => {
       toast({
@@ -164,9 +159,9 @@ export default function AddTaskModal({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="glass-modal">
-                      <SelectItem value="1: Foundation">1: Foundation</SelectItem>
-                      <SelectItem value="2: Growth">2: Growth</SelectItem>
-                      <SelectItem value="3: Authority">3: Authority</SelectItem>
+                      <SelectItem value="Foundation">Foundation</SelectItem>
+                      <SelectItem value="Growth">Growth</SelectItem>
+                      <SelectItem value="Authority">Authority</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
