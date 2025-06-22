@@ -239,15 +239,11 @@ export class DatabaseStorage implements IStorage {
     const [newProject] = await db.insert(projects).values(project).returning();
     
     // Add owner as project member with edit permission
-    try {
-      await db.insert(projectMembers).values({
-        projectId: newProject.id,
-        userId: project.ownerId,
-        permissionLevel: "edit",
-      });
-    } catch (error) {
-      console.warn("Failed to add project member:", error);
-    }
+    await db.insert(projectMembers).values({
+      projectId: newProject.id,
+      userId: project.ownerId,
+      permissionLevel: "edit",
+    });
     
     return newProject;
   }

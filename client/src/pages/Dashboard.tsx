@@ -44,10 +44,11 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
 
-  const { data: projects, isLoading: projectsLoading, error, refetch: refetchProjects } = useQuery<ProjectWithStats[]>({
+  const { data: projects = [], isLoading: projectsLoading, error, refetch: refetchProjects } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
     enabled: !!user,
     staleTime: 0,
+    cacheTime: 0,
     refetchOnWindowFocus: false,
   });
 
@@ -74,9 +75,21 @@ export default function Dashboard() {
         description: "Project created successfully",
       });
       
-      // Force complete refetch of projects
+      // Force complete data refresh
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
+      queryClient.removeQueries({ queryKey: ["/api/projects"] });
+      
+      // Optimistically update the UI
+      const newProjectWithStats = {
+        ...newProject,
+        totalTasks: 0,
+        completedTasks: 0,
+        memberCount: 1
+      };
+      
+      queryClient.setQueryData(["/api/projects"], (oldData: ProjectWithStats[] | undefined) => {
+        return oldData ? [...oldData, newProjectWithStats] : [newProjectWithStats];
+      });
       
       setCreateProjectOpen(false);
       form.reset();
