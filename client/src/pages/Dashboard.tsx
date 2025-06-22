@@ -66,11 +66,12 @@ export default function Dashboard() {
     mutationFn: async (data: z.infer<typeof createProjectSchema>) => {
       return apiRequest("/api/projects", "POST", data);
     },
-    onSuccess: () => {
+    onSuccess: (newProject) => {
       toast({
         title: "Success",
         description: "Project created successfully",
       });
+      // Force refresh projects list
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       setCreateProjectOpen(false);
       form.reset();

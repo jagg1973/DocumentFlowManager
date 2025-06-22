@@ -159,6 +159,9 @@ This is a comprehensive SEO project management dashboard built as a full-stack w
 - Added modern responsive Header and Footer components with glass effects
 - Fixed all authentication flows, logout functionality, and session management
 - Created AuthPage with premium glass UI and comprehensive user flows
+- Fixed critical apiRequest function parameter order issues affecting all API calls
+- Resolved project creation and task creation functionality with proper cache invalidation
+- Corrected logout endpoint method and improved UI refresh for new projects
 ```
 
 ## User Preferences
