@@ -742,21 +742,27 @@ export class DatabaseStorage implements IStorage {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
 
-    const [docStats] = await this.db
+    // Try to get document stats, handle case where no documents exist
+    const docResults = await this.db
       .select({
         totalDocuments: sql<number>`count(*)`,
-        totalDownloads: sql<number>`sum(${dmsDocuments.downloadCount})`,
-        totalSize: sql<number>`sum(${dmsDocuments.fileSize})`,
+        totalDownloads: sql<number>`coalesce(sum(${dmsDocuments.downloadCount}), 0)`,
+        totalSize: sql<number>`coalesce(sum(${dmsDocuments.fileSize}), 0)`,
         newThisWeek: sql<number>`count(case when ${dmsDocuments.createdAt} > ${weekAgo} then 1 end)`
       })
       .from(dmsDocuments);
 
-    const [userStats] = await this.db
+    const docStats = docResults[0] || { totalDocuments: 0, totalDownloads: 0, totalSize: 0, newThisWeek: 0 };
+
+    // Get user stats
+    const userResults = await this.db
       .select({
         totalUsers: sql<number>`count(*)`,
         newThisWeek: sql<number>`count(case when ${users.createdAt} > ${weekAgo} then 1 end)`
       })
       .from(users);
+
+    const userStats = userResults[0] || { totalUsers: 0, newThisWeek: 0 };
 
     const formatBytes = (bytes: number) => {
       if (bytes === 0) return "0 MB";
@@ -767,14 +773,14 @@ export class DatabaseStorage implements IStorage {
     };
 
     return {
-      totalDocuments: docStats?.totalDocuments || 0,
-      totalUsers: userStats?.totalUsers || 0,
-      totalDownloads: docStats?.totalDownloads || 0,
-      storageUsed: formatBytes(docStats?.totalSize || 0),
-      newDocumentsThisWeek: docStats?.newThisWeek || 0,
-      newUsersThisWeek: userStats?.newThisWeek || 0,
+      totalDocuments: Number(docStats.totalDocuments) || 0,
+      totalUsers: Number(userStats.totalUsers) || 0,
+      totalDownloads: Number(docStats.totalDownloads) || 0,
+      storageUsed: formatBytes(Number(docStats.totalSize) || 0),
+      newDocumentsThisWeek: Number(docStats.newThisWeek) || 0,
+      newUsersThisWeek: Number(userStats.newThisWeek) || 0,
       downloadsThisWeek: 0,
-      storagePercentage: Math.min((docStats?.totalSize || 0) / (1024 * 1024 * 1024) * 100, 100),
+      storagePercentage: Math.min((Number(docStats.totalSize) || 0) / (1024 * 1024 * 1024) * 100, 100),
     };
   }
 }

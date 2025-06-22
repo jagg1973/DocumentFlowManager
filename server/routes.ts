@@ -549,22 +549,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      // For now, we'll create a mock document upload
+      // For demo purposes, we'll create a mock document upload
       // In a real implementation, you'd handle file uploads here
       const documentData = insertDmsDocumentSchema.parse({
-        title: req.body.title,
-        description: req.body.description,
-        originalFilename: req.body.file?.name || 'document.pdf',
+        title: req.body.title || 'Sample Document',
+        description: req.body.description || 'A sample document for demonstration',
+        originalFilename: req.body.file?.name || `${req.body.title || 'document'}.pdf`,
         diskFilename: `doc_${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`,
         filepath: `/uploads/documents/doc_${Date.now()}.pdf`,
-        fileExtension: 'pdf',
-        mimeType: 'application/pdf',
-        fileSize: 1024 * 1024, // 1MB mock size
-        category: req.body.category,
-        subcategory: req.body.subcategory,
-        tags: req.body.tags ? req.body.tags.split(',').map((t: string) => t.trim()) : [],
+        fileExtension: req.body.file?.name?.split('.').pop()?.toLowerCase() || 'pdf',
+        mimeType: req.body.file?.type || 'application/pdf',
+        fileSize: req.body.file?.size || Math.floor(Math.random() * 5000000) + 100000, // Random size between 100KB-5MB
+        category: req.body.category || 'Templates',
+        subcategory: req.body.subcategory || null,
+        tags: req.body.tags ? req.body.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : ['seo', 'template'],
         uploadedBy: userId,
-        isPublic: req.body.isPublic === 'on' || req.body.isPublic === 'true',
+        isPublic: req.body.isPublic === 'on' || req.body.isPublic === 'true' || req.body.isPublic === true,
       });
       
       const document = await storage.createDocument(documentData);
@@ -602,9 +602,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      // Get all users (simplified for demo)
+      // For demo, return sample users including current user
       const users = [
-        { id: userId, firstName: user.firstName, lastName: user.lastName, email: user.email, userRole: user.userRole }
+        { 
+          id: userId, 
+          firstName: user.firstName, 
+          lastName: user.lastName, 
+          email: user.email, 
+          userRole: user.userRole,
+          memberAuthority: user.memberAuthority || 100,
+          createdAt: new Date().toISOString()
+        },
+        {
+          id: 'demo-user-1',
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john.doe@example.com',
+          userRole: 'client',
+          memberAuthority: 85,
+          createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: 'demo-user-2',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane.smith@example.com',
+          userRole: 'manager',
+          memberAuthority: 150,
+          createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+        }
       ];
       
       res.json(users);
