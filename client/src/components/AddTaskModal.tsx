@@ -52,11 +52,11 @@ export default function AddTaskModal({
     resolver: zodResolver(addTaskSchema),
     defaultValues: {
       taskName: "",
-      pillar: "",
-      phase: "",
+      pillar: "Technical SEO",
+      phase: "Foundation", 
       assignedToId: "",
-      startDate: "",
-      endDate: "",
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       description: "",
       guidelineDocLink: "",
     },
@@ -64,40 +64,37 @@ export default function AddTaskModal({
 
   const createTaskMutation = useMutation({
     mutationFn: async (data: z.infer<typeof addTaskSchema>) => {
-      const taskData = {
-        ...data,
-        assignedToId: data.assignedToId || null,
-        startDate: data.startDate || null,
-        endDate: data.endDate || null,
-        pillar: data.pillar || null,
-        phase: data.phase || null,
-        description: data.description || null,
-        guidelineDocLink: data.guidelineDocLink || null,
-      };
-      await apiRequest("POST", `/api/projects/${projectId}/tasks`, taskData);
+      const res = await apiRequest("POST", `/api/projects/${projectId}/tasks`, data);
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to create task');
+      }
+      return res.json();
     },
     onSuccess: () => {
       toast({
         title: "Success",
         description: "Task created successfully",
       });
+      form.reset();
       onTaskCreated();
+      onClose();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
+          description: "Please log in again",
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
+          window.location.href = "/auth";
+        }, 1000);
         return;
       }
       toast({
         title: "Error",
-        description: "Failed to create task",
+        description: error.message || "Failed to create task",
         variant: "destructive",
       });
     },
@@ -123,7 +120,7 @@ export default function AddTaskModal({
                 <FormItem>
                   <FormLabel>Task Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter task name..." className="frosted-input" {...field} />
+                    <Input placeholder="Enter task name..." className="glass-input" {...field} required />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -136,17 +133,17 @@ export default function AddTaskModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>SEO Pillar</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value || "Technical SEO"}>
                     <FormControl>
-                      <SelectTrigger className="frosted-input">
-                        <SelectValue placeholder="Select a pillar" />
+                      <SelectTrigger className="glass-input">
+                        <SelectValue placeholder="Select SEO pillar" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent className="glass-modal">
-                      <SelectItem value="Technical">Technical SEO</SelectItem>
+                    <SelectContent>
+                      <SelectItem value="Technical SEO">Technical SEO</SelectItem>
                       <SelectItem value="On-Page & Content">On-Page & Content</SelectItem>
-                      <SelectItem value="Off-Page">Off-Page SEO</SelectItem>
-                      <SelectItem value="Analytics">Analytics & Tracking</SelectItem>
+                      <SelectItem value="Off-Page SEO">Off-Page SEO</SelectItem>
+                      <SelectItem value="Analytics & Tracking">Analytics & Tracking</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -269,7 +266,11 @@ export default function AddTaskModal({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createTaskMutation.isPending}>
+              <Button 
+                type="submit" 
+                disabled={createTaskMutation.isPending || !form.watch("taskName")?.trim()}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+              >
                 {createTaskMutation.isPending ? "Creating..." : "Create Task"}
               </Button>
             </div>
