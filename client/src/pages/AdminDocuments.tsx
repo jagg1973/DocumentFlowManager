@@ -131,7 +131,7 @@ export default function AdminDocuments() {
 
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      const res = await apiRequest("DELETE", `/api/admin/documents/${documentId}`);
+      const res = await apiRequest(`/api/admin/documents/${documentId}`, "DELETE");
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(errorText || "Delete failed");

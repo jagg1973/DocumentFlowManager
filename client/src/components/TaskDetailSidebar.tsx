@@ -58,7 +58,7 @@ export default function TaskDetailSidebar({
 
   const updateTaskMutation = useMutation({
     mutationFn: async (data: Partial<typeof formData>) => {
-      await apiRequest("PUT", `/api/tasks/${task.id}`, data);
+      await apiRequest(`/api/tasks/${task.id}`, "PUT", data);
     },
     onSuccess: () => {
       toast({
@@ -89,7 +89,7 @@ export default function TaskDetailSidebar({
 
   const deleteTaskMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", `/api/tasks/${task.id}`);
+      await apiRequest(`/api/tasks/${task.id}`, "DELETE");
     },
     onSuccess: () => {
       toast({

@@ -63,7 +63,7 @@ export default function UserManagement() {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, data }: { userId: string, data: any }) => {
-      const res = await apiRequest("PATCH", `/api/admin/users/${userId}/role`, data);
+      const res = await apiRequest(`/api/admin/users/${userId}/role`, "PATCH", data);
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(errorText || "Failed to update user");

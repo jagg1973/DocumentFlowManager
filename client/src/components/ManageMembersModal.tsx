@@ -44,7 +44,7 @@ export default function ManageMembersModal({
 
   const addMemberMutation = useMutation({
     mutationFn: async (data: { userId: string; permissionLevel: 'edit' | 'view' }) => {
-      await apiRequest("POST", `/api/projects/${project.id}/members`, data);
+      await apiRequest(`/api/projects/${project.id}/members`, "POST", data);
     },
     onSuccess: () => {
       toast({
@@ -77,7 +77,7 @@ export default function ManageMembersModal({
 
   const removeMemberMutation = useMutation({
     mutationFn: async (memberId: number) => {
-      await apiRequest("DELETE", `/api/projects/${project.id}/members/${memberId}`);
+      await apiRequest(`/api/projects/${project.id}/members/${memberId}`, "DELETE");
     },
     onSuccess: () => {
       toast({
@@ -108,7 +108,7 @@ export default function ManageMembersModal({
 
   const updatePermissionMutation = useMutation({
     mutationFn: async (data: { memberId: number; permissionLevel: 'edit' | 'view' }) => {
-      await apiRequest("PUT", `/api/projects/${project.id}/members/${data.memberId}`, {
+      await apiRequest(`/api/projects/${project.id}/members/${data.memberId}`, "PUT", {
         permissionLevel: data.permissionLevel,
       });
     },

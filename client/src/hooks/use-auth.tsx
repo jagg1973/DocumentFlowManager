@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
       try {
-        const res = await apiRequest("GET", "/api/auth/me");
+        const res = await apiRequest("/api/auth/me", "GET");
         if (res.status === 401) {
           return null;
         }
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/auth/login", credentials);
+      const res = await apiRequest("/api/auth/login", "POST", credentials);
       if (!res.ok) {
         const errorData = await res.text();
         throw new Error(errorData || 'Login failed');
@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterData) => {
-      const res = await apiRequest("POST", "/api/auth/register", credentials);
+      const res = await apiRequest("/api/auth/register", "POST", credentials);
       if (!res.ok) {
         const errorData = await res.text();
         throw new Error(errorData || 'Registration failed');
@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Call server logout endpoint
       try {
-        await apiRequest("POST", "/api/auth/logout");
+        await apiRequest("/api/auth/logout", "POST");
       } catch (error) {
         console.warn("Server logout failed, but local session cleared:", error);
       }
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const forgotPasswordMutation = useMutation({
     mutationFn: async (email: { email: string }) => {
-      const res = await apiRequest("POST", "/api/auth/forgot-password", email);
+      const res = await apiRequest("/api/auth/forgot-password", "POST", email);
       if (!res.ok) {
         const errorData = await res.text();
         throw new Error(errorData || 'Failed to send reset email');
