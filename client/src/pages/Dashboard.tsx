@@ -17,30 +17,32 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
+
+function LogoutButton() {
+  const { logoutMutation } = useAuth();
+  
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="glass-button"
+      onClick={() => logoutMutation.mutate()}
+      disabled={logoutMutation.isPending}
+    >
+      <LogOut className="w-4 h-4 mr-2" />
+      {logoutMutation.isPending ? "Logging out..." : "Logout"}
+    </Button>
+  );
+}
 
 const createProjectSchema = z.object({
   projectName: z.string().min(1, "Project name is required"),
 });
 
 export default function Dashboard() {
-  const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user } = useAuth();
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
-
-  // Redirect to home if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, toast]);
 
   const { data: projects, isLoading: projectsLoading, error } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
@@ -123,7 +125,7 @@ export default function Dashboard() {
                   Documents
                 </Button>
               </Link>
-              {(user?.userRole === 'admin' || user?.userRole === 'manager') && (
+              {user?.role === 'admin' && (
                 <Link href="/admin">
                   <Button variant="outline" className="glass-button">
                     <Shield className="w-4 h-4 mr-2" />
@@ -370,6 +372,7 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+      <Footer />
     </div>
   );
 }

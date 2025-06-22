@@ -17,7 +17,9 @@ import {
   Database,
   Download
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 export default function AdminDashboard() {
   const { user } = useAuth();

@@ -1,33 +1,32 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { useAuth } from "@/hooks/useAuth";
-import NotFound from "@/pages/not-found";
-import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
-import ProjectTimeline from "@/pages/ProjectTimeline";
+import NotFound from "@/pages/NotFound";
+import AuthPage from "@/pages/AuthPage";
+import { AuthProvider } from "@/hooks/use-auth";
+import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";
+import { ThemeProvider } from "@/components/theme-provider";
 import AdminDashboard from "@/pages/AdminDashboard";
-import DocumentLibrary from "@/pages/DocumentLibrary";
 import ClientDocuments from "@/pages/ClientDocuments";
+import "./App.css";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
-
   return (
     <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Dashboard} />
-          <Route path="/project/:id" component={ProjectTimeline} />
-          <Route path="/admin" component={AdminDashboard} />
-          <Route path="/admin/documents" component={DocumentLibrary} />
-          <Route path="/documents" component={ClientDocuments} />
-        </>
-      )}
+      <ProtectedRoute path="/" component={Dashboard} />
+      <AdminRoute path="/admin" component={AdminDashboard} />
+      <ProtectedRoute path="/documents" component={ClientDocuments} />
+      <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -36,10 +35,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <AuthProvider>
+          <Router />
+          <Toaster />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

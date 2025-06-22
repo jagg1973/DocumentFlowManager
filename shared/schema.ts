@@ -50,22 +50,27 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// Enhanced User storage table with Member Authority (MA) system
+// Enhanced User storage table with Member Authority (MA) system and SAAS auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
+  email: varchar("email").unique().notNull(),
+  password: varchar("password"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  role: userRoleEnum("user_role").default("client"), // DMS Role
   memberLevel: memberLevelEnum("member_level").default("SEO Specialist"),
   memberAuthority: integer("member_authority").default(100), // MA Score (0-1000)
   experienceScore: integer("experience_score").default(50), // E1: Experience
   expertiseScore: integer("expertise_score").default(50), // E2: Expertise  
   authorityScore: integer("authority_score").default(50), // A: Authority
-  userRole: userRoleEnum("user_role").default("client"), // DMS Role
   trustScore: integer("trust_score").default(50), // T: Trustworthiness
   tasksCompleted: integer("tasks_completed").default(0),
   averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0.00"),
+  isEmailVerified: boolean("is_email_verified").default(false),
+  emailVerificationToken: varchar("email_verification_token"),
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetExpires: timestamp("password_reset_expires", { withTimezone: true }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

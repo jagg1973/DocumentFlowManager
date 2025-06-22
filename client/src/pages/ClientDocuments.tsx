@@ -20,7 +20,9 @@ import {
   Star,
   Bookmark
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { cn } from "@/lib/utils";
 
 interface Document {
@@ -374,6 +376,7 @@ export default function ClientDocuments() {
           </Card>
         )}
       </div>
+      <Footer />
     </div>
   );
 }
