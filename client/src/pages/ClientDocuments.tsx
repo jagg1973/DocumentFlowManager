@@ -105,7 +105,7 @@ export default function ClientDocuments() {
     "Checklists"
   ];
 
-  const filteredDocuments = documents.filter((doc: Document) => {
+  const filteredDocuments = Array.isArray(documents) ? documents.filter((doc: Document) => {
     if (activeTab === "recent") {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -115,7 +115,7 @@ export default function ClientDocuments() {
       return doc.downloadCount > 5;
     }
     return true;
-  });
+  }) : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">

@@ -39,7 +39,7 @@ import {
   type InsertDocumentVersion,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc, asc, or, ilike } from "drizzle-orm";
+import { eq, and, inArray, desc, asc, or, ilike, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -474,66 +474,79 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDocuments(filters?: { search?: string; category?: string; userId?: string; isPublic?: boolean }): Promise<(DmsDocument & { uploader: User })[]> {
-    let query = this.db
-      .select({
-        id: dmsDocuments.id,
-        title: dmsDocuments.title,
-        description: dmsDocuments.description,
-        originalFilename: dmsDocuments.originalFilename,
-        diskFilename: dmsDocuments.diskFilename,
-        filepath: dmsDocuments.filepath,
-        fileExtension: dmsDocuments.fileExtension,
-        mimeType: dmsDocuments.mimeType,
-        fileSize: dmsDocuments.fileSize,
-        category: dmsDocuments.category,
-        subcategory: dmsDocuments.subcategory,
-        tags: dmsDocuments.tags,
-        uploadedBy: dmsDocuments.uploadedBy,
-        isPublic: dmsDocuments.isPublic,
-        downloadCount: dmsDocuments.downloadCount,
-        createdAt: dmsDocuments.createdAt,
-        updatedAt: dmsDocuments.updatedAt,
-        uploader: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-          profileImageUrl: users.profileImageUrl,
-        }
-      })
-      .from(dmsDocuments)
-      .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id));
-
-    if (filters?.search) {
-      query = query.where(
-        or(
-          ilike(dmsDocuments.title, `%${filters.search}%`),
-          ilike(dmsDocuments.description, `%${filters.search}%`)
-        )
-      );
-    }
-
-    if (filters?.category) {
-      query = query.where(eq(dmsDocuments.category, filters.category));
-    }
-
-    if (filters?.userId) {
-      query = query.where(eq(dmsDocuments.uploadedBy, filters.userId));
-    }
-
-    if (filters?.isPublic !== undefined) {
-      query = query.where(eq(dmsDocuments.isPublic, filters.isPublic));
-    }
-
-    const results = await query.orderBy(desc(dmsDocuments.createdAt));
-    return results.map(row => ({
-      ...row,
-      uploader: {
-        ...row.uploader,
-        firstName: row.uploader.firstName || "",
-        lastName: row.uploader.lastName || "",
+    try {
+      // Check if DMS tables exist by trying a simple count query first
+      try {
+        await this.db.select({ count: sql`count(*)` }).from(dmsDocuments).limit(1);
+      } catch (tableError) {
+        console.log("DMS tables not yet created, returning empty array");
+        return [];
       }
-    })) as (DmsDocument & { uploader: User })[];
+
+      let query = this.db
+        .select({
+          id: dmsDocuments.id,
+          title: dmsDocuments.title,
+          description: dmsDocuments.description,
+          originalFilename: dmsDocuments.originalFilename,
+          diskFilename: dmsDocuments.diskFilename,
+          filepath: dmsDocuments.filepath,
+          fileExtension: dmsDocuments.fileExtension,
+          mimeType: dmsDocuments.mimeType,
+          fileSize: dmsDocuments.fileSize,
+          category: dmsDocuments.category,
+          subcategory: dmsDocuments.subcategory,
+          tags: dmsDocuments.tags,
+          uploadedBy: dmsDocuments.uploadedBy,
+          isPublic: dmsDocuments.isPublic,
+          downloadCount: dmsDocuments.downloadCount,
+          createdAt: dmsDocuments.createdAt,
+          updatedAt: dmsDocuments.updatedAt,
+          uploader: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+            profileImageUrl: users.profileImageUrl,
+          }
+        })
+        .from(dmsDocuments)
+        .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id));
+
+      if (filters?.search) {
+        query = query.where(
+          or(
+            ilike(dmsDocuments.title, `%${filters.search}%`),
+            ilike(dmsDocuments.description, `%${filters.search}%`)
+          )
+        );
+      }
+
+      if (filters?.category) {
+        query = query.where(eq(dmsDocuments.category, filters.category));
+      }
+
+      if (filters?.userId) {
+        query = query.where(eq(dmsDocuments.uploadedBy, filters.userId));
+      }
+
+      if (filters?.isPublic !== undefined) {
+        query = query.where(eq(dmsDocuments.isPublic, filters.isPublic));
+      }
+
+      const results = await query.orderBy(desc(dmsDocuments.createdAt));
+      return results.map(row => ({
+        ...row,
+        uploader: {
+          ...row.uploader,
+          firstName: row.uploader?.firstName || "",
+          lastName: row.uploader?.lastName || "",
+        }
+      })) as (DmsDocument & { uploader: User })[];
+    } catch (error) {
+      console.error("Error in getDocuments:", error);
+      return [];
+    }
   }
 
   async updateDocument(id: number, document: Partial<InsertDmsDocument>): Promise<DmsDocument | undefined> {
@@ -610,8 +623,8 @@ export class DatabaseStorage implements IStorage {
       ...row,
       uploader: {
         ...row.uploader,
-        firstName: row.uploader.firstName || "",
-        lastName: row.uploader.lastName || "",
+        firstName: row.uploader?.firstName || "",
+        lastName: row.uploader?.lastName || "",
       }
     })) as (DmsDocument & { uploader: User })[];
   }
