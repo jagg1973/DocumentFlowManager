@@ -239,11 +239,15 @@ export class DatabaseStorage implements IStorage {
     const [newProject] = await db.insert(projects).values(project).returning();
     
     // Add owner as project member with edit permission
-    await this.addProjectMember({
-      projectId: newProject.id,
-      userId: project.ownerId,
-      permissionLevel: "edit",
-    });
+    try {
+      await db.insert(projectMembers).values({
+        projectId: newProject.id,
+        userId: project.ownerId,
+        permissionLevel: "edit",
+      });
+    } catch (error) {
+      console.warn("Failed to add project member:", error);
+    }
     
     return newProject;
   }
@@ -254,6 +258,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProjectsForUser(userId: string): Promise<Project[]> {
+    // Get projects where user is owner OR member
     const userProjects = await db
       .select({
         id: projects.id,
@@ -262,8 +267,12 @@ export class DatabaseStorage implements IStorage {
         createdAt: projects.createdAt,
       })
       .from(projects)
-      .innerJoin(projectMembers, eq(projects.id, projectMembers.projectId))
-      .where(eq(projectMembers.userId, userId))
+      .leftJoin(projectMembers, eq(projects.id, projectMembers.projectId))
+      .where(or(
+        eq(projects.ownerId, userId),
+        eq(projectMembers.userId, userId)
+      ))
+      .groupBy(projects.id, projects.projectName, projects.ownerId, projects.createdAt)
       .orderBy(desc(projects.createdAt));
     
     return userProjects;
