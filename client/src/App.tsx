@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Switch, Route } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import Dashboard from "@/pages/Dashboard";
-import NotFound from "@/pages/NotFound";
+import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";

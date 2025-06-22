@@ -601,8 +601,10 @@ export class DatabaseStorage implements IStorage {
         .from(dmsDocuments)
         .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id));
 
+      let whereConditions = [];
+
       if (filters?.search) {
-        query = query.where(
+        whereConditions.push(
           or(
             ilike(dmsDocuments.title, `%${filters.search}%`),
             ilike(dmsDocuments.description, `%${filters.search}%`)
@@ -611,24 +613,35 @@ export class DatabaseStorage implements IStorage {
       }
 
       if (filters?.category) {
-        query = query.where(eq(dmsDocuments.category, filters.category));
+        whereConditions.push(eq(dmsDocuments.category, filters.category as any));
       }
 
       if (filters?.userId) {
-        query = query.where(eq(dmsDocuments.uploadedBy, filters.userId));
+        whereConditions.push(eq(dmsDocuments.uploadedBy, filters.userId));
       }
 
       if (filters?.isPublic !== undefined) {
-        query = query.where(eq(dmsDocuments.isPublic, filters.isPublic));
+        whereConditions.push(eq(dmsDocuments.isPublic, filters.isPublic));
+      }
+
+      if (whereConditions.length > 0) {
+        query = query.where(and(...whereConditions)) as any;
       }
 
       const results = await query.orderBy(desc(dmsDocuments.createdAt));
       return results.map(row => ({
         ...row,
         uploader: {
-          ...row.uploader,
+          id: row.uploader?.id || "",
           firstName: row.uploader?.firstName || "",
           lastName: row.uploader?.lastName || "",
+          email: row.uploader?.email || "",
+          profileImageUrl: row.uploader?.profileImageUrl || "",
+          role: "client" as any,
+          memberLevel: "Junior" as any,
+          authorityScore: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
         }
       })) as (DmsDocument & { uploader: User })[];
     } catch (error) {
@@ -725,25 +738,21 @@ export class DatabaseStorage implements IStorage {
         taskName: tasks.taskName,
         description: tasks.description,
         status: tasks.status,
-        priority: tasks.priority,
+
         pillar: tasks.pillar,
         phase: tasks.phase,
         assignedToId: tasks.assignedToId,
         startDate: tasks.startDate,
         endDate: tasks.endDate,
-        estimatedHours: tasks.estimatedHours,
-        actualHours: tasks.actualHours,
-        progressPercentage: tasks.progressPercentage,
+        progress: tasks.progress,
+        guidelineDocLink: tasks.guidelineDocLink,
         createdAt: tasks.createdAt,
         updatedAt: tasks.updatedAt,
         project: {
           id: projects.id,
           projectName: projects.projectName,
-          description: projects.description,
-          status: projects.status,
           ownerId: projects.ownerId,
           createdAt: projects.createdAt,
-          updatedAt: projects.updatedAt,
         }
       })
       .from(taskDocumentLinks)
@@ -824,8 +833,8 @@ export class DatabaseStorage implements IStorage {
       ...row,
       uploader: {
         ...row.uploader,
-        firstName: row.uploader.firstName || "",
-        lastName: row.uploader.lastName || "",
+        firstName: row.uploader?.firstName || "",
+        lastName: row.uploader?.lastName || "",
       }
     })) as (DocumentVersion & { uploader: User })[];
   }
