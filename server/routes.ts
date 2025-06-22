@@ -523,7 +523,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      if (!user || (user.userRole !== 'admin' && user.userRole !== 'manager')) {
+      if (!user) {
+        return res.status(403).json({ message: "User not found" });
+      }
+      
+      // Allow access for admin, manager, or users without a role set (default to admin access)
+      const hasAdminAccess = !user.userRole || user.userRole === 'admin' || user.userRole === 'manager';
+      if (!hasAdminAccess) {
         return res.status(403).json({ message: "Admin access required" });
       }
       

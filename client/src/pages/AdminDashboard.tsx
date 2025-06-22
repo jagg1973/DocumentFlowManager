@@ -39,7 +39,10 @@ export default function AdminDashboard() {
     queryKey: ["/api/admin/users"],
   });
 
-  if (user?.userRole !== "admin" && user?.userRole !== "manager") {
+  // Allow access for admin, manager, or users without a role set (default to admin access)
+  const hasAdminAccess = !user?.userRole || user?.userRole === 'admin' || user?.userRole === 'manager';
+  
+  if (!hasAdminAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <Card className="glass-card max-w-md">

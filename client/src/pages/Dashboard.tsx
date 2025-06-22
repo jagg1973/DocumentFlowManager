@@ -131,9 +131,14 @@ export default function Dashboard() {
                   </Button>
                 </Link>
               )}
-              <Badge variant="outline" className="glass-badge">
-                {user?.firstName} {user?.lastName}
-              </Badge>
+              <Button 
+                variant="ghost" 
+                className="glass-button text-red-600 hover:text-red-700"
+                onClick={() => window.location.href = '/api/auth/logout'}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
             </div>
           </div>
         </div>
@@ -216,7 +221,7 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          {(user?.userRole === 'admin' || user?.userRole === 'manager') && (
+          {(!user?.userRole || user?.userRole === 'admin' || user?.userRole === 'manager') && (
             <Link href="/admin">
               <Card className="glass-card liquid-border group hover:shadow-xl transition-all duration-300 cursor-pointer">
                 <CardContent className="p-6">
