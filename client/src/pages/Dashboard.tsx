@@ -47,9 +47,8 @@ export default function Dashboard() {
   const { data: projects, isLoading: projectsLoading, error, refetch: refetchProjects } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
     enabled: !!user,
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
     staleTime: 0,
+    refetchOnWindowFocus: false,
   });
 
   // Calculate stats
@@ -75,10 +74,9 @@ export default function Dashboard() {
         description: "Project created successfully",
       });
       
-      // Multiple strategies to ensure UI updates
+      // Force complete refetch of projects
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.removeQueries({ queryKey: ["/api/projects"] });
-      refetchProjects();
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
       
       setCreateProjectOpen(false);
       form.reset();

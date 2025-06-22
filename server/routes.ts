@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
+import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -277,6 +278,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching reports:", error);
       res.status(500).json({ message: "Failed to fetch reports" });
+    }
+  });
+
+  // AI Task Suggestions endpoints
+  app.post('/api/projects/:projectId/ai-suggestions', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const projectId = parseInt(req.params.projectId);
+      
+      // Verify user has access to this project
+      const access = await storage.checkUserProjectAccess(userId, projectId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Get project and existing tasks
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      const tasks = await storage.getTasksForProject(projectId);
+      
+      const suggestions = await generateTaskSuggestions(
+        project.projectName,
+        tasks.map(task => ({
+          taskName: task.taskName,
+          pillar: task.pillar,
+          phase: task.phase,
+          status: task.status
+        })),
+        req.body.targetAudience,
+        req.body.websiteType
+      );
+
+      res.json({ suggestions });
+    } catch (error) {
+      console.error("Error generating AI suggestions:", error);
+      res.status(500).json({ message: "Failed to generate suggestions" });
+    }
+  });
+
+  app.get('/api/projects/:projectId/gap-analysis', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const projectId = parseInt(req.params.projectId);
+      
+      // Verify user has access to this project
+      const access = await storage.checkUserProjectAccess(userId, projectId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Get project and tasks
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      const tasks = await storage.getTasksForProject(projectId);
+      
+      const analysis = await analyzeProjectGaps(
+        project.projectName,
+        tasks.map(task => ({
+          taskName: task.taskName,
+          pillar: task.pillar,
+          phase: task.phase,
+          status: task.status,
+          progress: task.progress || 0
+        }))
+      );
+
+      res.json(analysis);
+    } catch (error) {
+      console.error("Error generating gap analysis:", error);
+      res.status(500).json({ message: "Failed to generate analysis" });
     }
   });
 

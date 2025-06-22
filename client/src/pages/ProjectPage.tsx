@@ -9,6 +9,7 @@ import { Link } from "wouter";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AddTaskModal from "@/components/AddTaskModal";
+import AITaskSuggestions from "@/components/AITaskSuggestions";
 
 interface Project {
   id: number;
