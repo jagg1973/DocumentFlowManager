@@ -1,0 +1,40 @@
+User@DESKTOP-SRNQP1I MINGW64 /c/xampp/htdocs/seo_timeline (main)
+$ docker-compose build --no-cache
+time="2025-06-23T13:08:26+03:00" level=warning msg="C:\\xampp\\htdocs\\seo_timeline\\docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+Compose can now delegate builds to bake for better performance.
+ To do so, set COMPOSE_BAKE=true.
+[+] Building 21.3s (12/20)                                                                                                                      docker:desktop-linux
+ => [app internal] load build definition from Dockerfile                                                                                                        0.0s
+ => => transferring dockerfile: 986B                                                                                                                            0.0s 
+ => [app internal] load metadata for docker.io/library/node:18-alpine                                                                                           2.4s 
+ => [app auth] library/node:pull token for registry-1.docker.io                                                                                                 0.0s
+ => [app internal] load .dockerignore                                                                                                                           0.0s
+ => => transferring context: 183B                                                                                                                               0.0s 
+ => [app builder 1/6] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e                             3.6s 
+ => => resolve docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e                                         0.0s 
+ => => sha256:25ff2da83641908f65c3a74d80409d6b1b62ccfaab220b9ea70b80df5a2e0549 446B / 446B                                                                      0.2s 
+ => => sha256:1e5a4c89cee5c0826c540ab06d4b6b491c96eda01837f430bd47f0d26702d6e3 1.26MB / 1.26MB                                                                  0.4s 
+ => => sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e 40.01MB / 40.01MB                                                                2.8s
+ => => extracting sha256:dd71dde834b5c203d162902e6b8994cb2309ae049a0eabc4efea161b2b5a3d0e                                                                       0.7s
+ => => extracting sha256:1e5a4c89cee5c0826c540ab06d4b6b491c96eda01837f430bd47f0d26702d6e3                                                                       0.0s 
+ => => extracting sha256:25ff2da83641908f65c3a74d80409d6b1b62ccfaab220b9ea70b80df5a2e0549                                                                       0.0s
+ => [app internal] load build context                                                                                                                           0.1s
+ => => transferring context: 1.06MB                                                                                                                             0.1s 
+ => [app builder 2/6] WORKDIR /app                                                                                                                              0.5s 
+ => [app builder 3/6] COPY package*.json ./                                                                                                                     0.0s
+ => [app builder 4/6] RUN npm ci --only=production                                                                                                             13.8s 
+ => [app production  4/12] RUN npm ci --only=production && npm cache clean --force                                                                             13.8s 
+ => [app builder 5/6] COPY . .                                                                                                                                  0.2s
+ => ERROR [app builder 6/6] RUN npm run build                                                                                                                   0.5s
+------
+ > [app builder 6/6] RUN npm run build:
+0.370 
+0.370 > rest-express@1.0.0 build
+0.370 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+0.370
+0.377 sh: vite: not found
+------
+failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+
+User@DESKTOP-SRNQP1I MINGW64 /c/xampp/htdocs/seo_timeline (main)
+$
