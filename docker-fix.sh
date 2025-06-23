@@ -12,8 +12,8 @@ docker container prune -f
 docker system prune -f
 
 # Check what's using port 3306
-echo "🔍 Checking port usage:"
-lsof -i :3306 || netstat -tulpn | grep :3306 || echo "Port 3306 check complete"
+echo "🔍 Checking for processes on port 3306..."
+netstat -an | findstr :3306 2>/dev/null || echo "No processes found on port 3306"
 
 # Rebuild with no cache to fix vite build issue
 echo "🔨 Rebuilding containers..."

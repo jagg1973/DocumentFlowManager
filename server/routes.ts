@@ -5,6 +5,11 @@ import { storage } from "./storage";
 import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  });
+
   // Auth middleware
   setupAuth(app);
 

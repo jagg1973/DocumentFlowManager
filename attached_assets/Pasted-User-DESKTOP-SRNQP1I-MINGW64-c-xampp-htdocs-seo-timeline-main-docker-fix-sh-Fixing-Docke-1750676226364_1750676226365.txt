@@ -1,0 +1,75 @@
+User@DESKTOP-SRNQP1I MINGW64 /c/xampp/htdocs/seo_timeline (main)
+$ ./docker-fix.sh
+🔧 Fixing Docker build and port conflicts...
+[+] Running 6/6
+ ✔ Container seo_timeline_app        Removed                                                                                                                    0.0s 
+ ✔ Container seo_timeline_redis      Removed                                                                                                                    0.6s 
+ ✔ Container seo_timeline_db         Removed                                                                                                                    2.6s 
+ ✔ Volume seo_timeline_redis_data    Removed                                                                                                                    0.0s 
+ ✔ Network seo_timeline_seo_network  Removed                                                                                                                    0.6s 
+ ! Volume seo_timeline_mysql_data    Resource is still in use                                                                                                   0.0s 
+Total reclaimed space: 0B
+Deleted build cache objects:
+vqf7reysj6rn6uqa5ljucevjv
+lme7ezevnw03hko6o698m0xx1
+uodoid08igfp0sogt1v9mm60i
+jvb81qoe8eane3nujth0oalkm
+wvr3lvvf0b7akmzkmofgib7gy
+ommt4028l0j3onmieyuct79e7
+nq718j6hzvzy42rp5e6dcdnwx
+vu4oikz1zx06n83c2lpzunpr9
+
+Total reclaimed space: 46.37MB
+🔍 Checking for processes on port 3306...
+  TCP    0.0.0.0:3306           0.0.0.0:0              LISTENING       34656
+  TCP    [::]:3306              [::]:0                 LISTENING       34656
+  TCP    [::1]:3306             [::]:0                 LISTENING       27276
+🔨 Rebuilding containers...
+Compose can now delegate builds to bake for better performance.
+ To do so, set COMPOSE_BAKE=true.
+[+] Building 3.0s (10/21)                                                                                                                       docker:desktop-linux
+ => [app internal] load build definition from Dockerfile                                                                                                        0.0s
+ => => transferring dockerfile: 1.19kB                                                                                                                          0.0s 
+ => [app internal] load metadata for docker.io/library/node:18-alpine                                                                                           1.4s 
+ => [app internal] load metadata for docker.io/library/node:20-alpine                                                                                           1.4s 
+ => [app internal] load .dockerignore                                                                                                                           0.0s
+ => => transferring context: 183B                                                                                                                               0.0s 
+ => [app builder 1/7] FROM docker.io/library/node:20-alpine@sha256:d3507a213936fe4ef54760a186e113db5188472d9efdf491686bd94580a1c1e8                             1.5s 
+ => => resolve docker.io/library/node:20-alpine@sha256:d3507a213936fe4ef54760a186e113db5188472d9efdf491686bd94580a1c1e8                                         0.0s 
+ => => sha256:a35ae40f249e2d6c90ea87a5676595b3b022a62efa9c2cc60c803de19e468134 445B / 445B                                                                      0.2s 
+ => => sha256:de1f569a869623328ab2534cb764ccb6d2142d6e1b557b1580357d5176b863a5 1.26MB / 1.26MB                                                                  0.2s 
+ => => sha256:50e3d90b63789c43aa015219149b428346dc8958a44c58c5da65f0b8f0af0e28 14.68MB / 42.95MB                                                                1.3s 
+ => => sha256:fe07684b16b82247c3539ed86a65ff37a76138ec25d380bd80c869a1a4c73236 3.80MB / 3.80MB                                                                  0.8s 
+ => => extracting sha256:fe07684b16b82247c3539ed86a65ff37a76138ec25d380bd80c869a1a4c73236                                                                       0.1s
+ => [app internal] load build context                                                                                                                           0.1s 
+ => => transferring context: 1.06MB                                                                                                                             0.1s 
+ => [app production 1/9] FROM docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e                          0.2s
+ => => resolve docker.io/library/node:18-alpine@sha256:8d6421d663b4c28fd3ebc498332f249011d118945588d0a35cb9bc4b8ca09d9e                                         0.0s 
+ => [app production 2/9] WORKDIR /app                                                                                                                           0.0s 
+ => ERROR [app production 3/9] RUN npm install -g npm@latest                                                                                                    1.2s
+ => CANCELED [app builder 2/7] WORKDIR /app                                                                                                                     0.0s
+------
+ > [app production 3/9] RUN npm install -g npm@latest:
+1.076 npm error code EBADENGINE
+1.077 npm error engine Unsupported engine
+1.077 npm error engine Not compatible with your version of node/npm: npm@11.4.2
+1.079 npm error notsup Not compatible with your version of node/npm: npm@11.4.2
+1.079 npm error notsup Required: {"node":"^20.17.0 || >=22.9.0"}
+1.079 npm error notsup Actual:   {"npm":"10.8.2","node":"v18.20.8"}
+1.083 npm error A complete log of this run can be found in: /root/.npm/_logs/2025-06-23T10_55_24_423Z-debug-0.log
+------
+failed to solve: process "/bin/sh -c npm install -g npm@latest" did not complete successfully: exit code: 1
+🚀 Starting services...
+[+] Running 2/2
+ ✔ Network seo_timeline_seo_network  Created                                                                                                                    0.0s 
+[+] Running 5/5timeline_redis_data"  Created                                                                                                                    0.0s 
+ ✔ Network seo_timeline_seo_network  Created                                                                                                                    0.0s 
+ ✔ Volume "seo_timeline_redis_data"  Created                                                                                                                    0.0s 
+ ✔ Container seo_timeline_db         Started                                                                                                                    1.0s 
+ ✔ Container seo_timeline_redis      Started                                                                                                                    1.0s 
+ ✔ Container seo_timeline_app        Started                                                                                                                    1.3s 
+✅ Fixed! Services available:
+   Application: http://localhost:5000
+   Database: localhost:3307
+
+User@DESKTOP-SRNQP1I MINGW64 /c/xampp/htdocs/seo_timeline (main)
