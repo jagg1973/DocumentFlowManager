@@ -22,7 +22,7 @@ Complete Docker implementation for the SEO Timeline Dashboard with MySQL 8.0, Re
 
 3. **Access Application**
    - **Application**: http://localhost:5000
-   - **Database**: localhost:3306 (user: `seo_user`, password: `seo_password`)
+   - **Database**: localhost:3307 (user: `seo_user`, password: `seo_password`)
    - **Default Login**: jaguzman123@hotmail.com
 
 ## 📋 Manual Setup
@@ -71,7 +71,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 | Service | Port | Description |
 |---------|------|-------------|
 | app | 5000 | Main application (Node.js + React) |
-| mysql | 3306 | MySQL 8.0 database |
+| mysql | 3307 | MySQL 8.0 database |
 | redis | 6379 | Redis for session storage |
 
 ## 🐛 Debugging Project Creation Issue

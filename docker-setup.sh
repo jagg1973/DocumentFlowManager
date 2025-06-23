@@ -65,7 +65,7 @@ if curl -f http://localhost:5000/api/health &> /dev/null; then
     echo ""
     echo "🎉 Setup complete!"
     echo "📱 Application: http://localhost:5000"
-    echo "🗄️  Database: localhost:3306"
+    echo "🗄️  Database: localhost:3307"
     echo "🔑 Login: jaguzman123@hotmail.com"
     echo ""
     echo "📝 To stop services: docker-compose down"
