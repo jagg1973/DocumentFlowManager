@@ -114,7 +114,9 @@ export default function AdminDocuments() {
         title: "Success",
         description: "Document uploaded successfully",
       });
+      // Invalidate all document queries regardless of search/category params
       queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setUploadOpen(false);
       uploadForm.reset();
@@ -143,7 +145,9 @@ export default function AdminDocuments() {
         title: "Success",
         description: "Document deleted successfully",
       });
+      // Invalidate all document queries regardless of search/category params
       queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
     },
   });

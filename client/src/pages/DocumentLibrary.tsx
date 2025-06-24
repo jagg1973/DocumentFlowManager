@@ -84,7 +84,10 @@ export default function DocumentLibrary() {
       });
     },
     onSuccess: () => {
+      // Invalidate all document queries regardless of search/category params
       queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setShowUploadModal(false);
       toast({
         title: "Success",
@@ -108,7 +111,10 @@ export default function DocumentLibrary() {
       });
     },
     onSuccess: () => {
+      // Invalidate all document queries regardless of search/category params
       queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       toast({
         title: "Success",
         description: "Document deleted successfully",
