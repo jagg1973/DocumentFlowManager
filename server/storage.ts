@@ -562,8 +562,92 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDocuments(filters?: { search?: string; category?: string; userId?: string; isPublic?: boolean }): Promise<(DmsDocument & { uploader: User })[]> {
-    // Return empty array for now to avoid schema conflicts
-    return [];
+    try {
+      // Check if DMS tables exist by trying a simple count query first
+      try {
+        await db.select({ count: sql`count(*)` }).from(dmsDocuments).limit(1);
+      } catch (tableError) {
+        console.log("DMS tables not yet created, returning empty array");
+        return [];
+      }
+
+      let query = db
+        .select({
+          id: dmsDocuments.id,
+          title: dmsDocuments.title,
+          description: dmsDocuments.description,
+          originalFilename: dmsDocuments.originalFilename,
+          diskFilename: dmsDocuments.diskFilename,
+          filepath: dmsDocuments.filepath,
+          fileExtension: dmsDocuments.fileExtension,
+          mimeType: dmsDocuments.mimeType,
+          fileSize: dmsDocuments.fileSize,
+          category: dmsDocuments.category,
+          subcategory: dmsDocuments.subcategory,
+          tags: dmsDocuments.tags,
+          uploadedBy: dmsDocuments.uploadedBy,
+          isPublic: dmsDocuments.isPublic,
+          downloadCount: dmsDocuments.downloadCount,
+          createdAt: dmsDocuments.createdAt,
+          updatedAt: dmsDocuments.updatedAt,
+          uploader: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+            profileImageUrl: users.profileImageUrl,
+          }
+        })
+        .from(dmsDocuments)
+        .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id));
+
+      let whereConditions = [];
+
+      if (filters?.search) {
+        whereConditions.push(
+          or(
+            ilike(dmsDocuments.title, `%${filters.search}%`),
+            ilike(dmsDocuments.description, `%${filters.search}%`)
+          )
+        );
+      }
+
+      if (filters?.category) {
+        whereConditions.push(eq(dmsDocuments.category, filters.category as any));
+      }
+
+      if (filters?.userId) {
+        whereConditions.push(eq(dmsDocuments.uploadedBy, filters.userId));
+      }
+
+      if (filters?.isPublic !== undefined) {
+        whereConditions.push(eq(dmsDocuments.isPublic, filters.isPublic));
+      }
+
+      if (whereConditions.length > 0) {
+        query = query.where(and(...whereConditions)) as any;
+      }
+
+      const results = await query.orderBy(desc(dmsDocuments.createdAt));
+      return results.map(row => ({
+        ...row,
+        uploader: {
+          id: row.uploader?.id || "",
+          firstName: row.uploader?.firstName || "",
+          lastName: row.uploader?.lastName || "",
+          email: row.uploader?.email || "",
+          profileImageUrl: row.uploader?.profileImageUrl || "",
+          role: "client" as any,
+          memberLevel: "Junior" as any,
+          authorityScore: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      })) as (DmsDocument & { uploader: User })[];
+    } catch (error) {
+      console.error("Error in getDocuments:", error);
+      return [];
+    }
   }
 
   async getDocumentsOld(filters?: { search?: string; category?: string; userId?: string; isPublic?: boolean }): Promise<(DmsDocument & { uploader: User })[]> {
