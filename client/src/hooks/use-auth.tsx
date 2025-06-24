@@ -43,11 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
       try {
-        const res = await apiRequest("/api/auth/me", "GET");
-        if (res.status === 401) {
-          return null;
-        }
-        return await res.json();
+        return await apiRequest("/api/auth/me", "GET");
       } catch (error) {
         return null;
       }
@@ -57,15 +53,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("/api/auth/login", "POST", credentials);
-      if (!res.ok) {
-        const errorData = await res.text();
-        throw new Error(errorData || 'Login failed');
-      }
-      return await res.json();
+      return await apiRequest("/api/auth/login", "POST", credentials);
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/auth/me"], user);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({
         title: "Welcome back!",
         description: `Hello ${user.firstName}, you're now logged in.`,
@@ -90,15 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterData) => {
-      const res = await apiRequest("/api/auth/register", "POST", credentials);
-      if (!res.ok) {
-        const errorData = await res.text();
-        throw new Error(errorData || 'Registration failed');
-      }
-      return await res.json();
+      return await apiRequest("/api/auth/register", "POST", credentials);
     },
     onSuccess: (user: User) => {
       queryClient.setQueryData(["/api/auth/me"], user);
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       toast({
         title: "Welcome!",
         description: `Account created successfully. Welcome ${user.firstName}!`,
@@ -147,12 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const forgotPasswordMutation = useMutation({
     mutationFn: async (email: { email: string }) => {
-      const res = await apiRequest("/api/auth/forgot-password", "POST", email);
-      if (!res.ok) {
-        const errorData = await res.text();
-        throw new Error(errorData || 'Failed to send reset email');
-      }
-      return await res.json();
+      return await apiRequest("/api/auth/forgot-password", "POST", email);
     },
     onSuccess: () => {
       toast({
