@@ -47,9 +47,13 @@ export default function Dashboard() {
   const { data: projects = [], isLoading: projectsLoading, error, refetch: refetchProjects } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
     enabled: !!user,
-    staleTime: 1000 * 2, // 2 seconds
-    gcTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 0,
+    gcTime: 0,
     refetchOnWindowFocus: true,
+    retry: (failureCount, error) => {
+      console.log("Projects query failed:", error);
+      return failureCount < 2;
+    },
   });
 
   // Calculate stats

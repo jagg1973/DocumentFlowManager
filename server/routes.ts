@@ -4,6 +4,9 @@ import multer from "multer";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
+import { db } from "./db";
+import { projects } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -30,13 +33,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Not authenticated' });
       }
       
-      console.log("Fetching projects for user:", userId);
-      const projects = await storage.getProjectsForUser(userId);
-      console.log("Found projects:", projects.length);
-      res.json(projects);
+      // Simple direct query to bypass complex logic
+      const directProjects = await db.select().from(projects).where(eq(projects.ownerId, userId));
+      console.log(`Direct query found ${directProjects.length} projects for user ${userId}`);
+      
+      res.json(directProjects);
     } catch (error) {
       console.error("Error fetching projects:", error);
-      res.status(500).json({ message: "Failed to fetch projects" });
+      res.status(500).json({ message: "Failed to fetch projects", error: error.message });
     }
   });
 
