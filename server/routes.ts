@@ -30,7 +30,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: 'Not authenticated' });
       }
       
+      console.log("Fetching projects for user:", userId);
       const projects = await storage.getProjectsForUser(userId);
+      console.log("Found projects:", projects.length);
       res.json(projects);
     } catch (error) {
       console.error("Error fetching projects:", error);
