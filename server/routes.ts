@@ -1,8 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint
@@ -133,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin document upload
-  app.post('/api/admin/documents/upload', async (req: any, res: any) => {
+  app.post('/api/admin/documents/upload', upload.single('file'), async (req: any, res: any) => {
     try {
       const userId = req.session?.userId;
       if (!userId) {
@@ -145,7 +154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
-      // For demo purposes, create a mock document entry
+      // Debug log to see what data we're receiving
+      console.log("Upload request body:", req.body);
+      
+      // Create document entry with the actual form data
       const document = await storage.createDocument({
         title: req.body.title || "Uploaded Document",
         description: req.body.description || "",
@@ -155,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileExtension: "pdf",
         mimeType: "application/pdf",
         fileSize: 1024 * 1024, // 1MB demo size
-        category: req.body.category || "Templates", // Ensure category is never null
+        category: req.body.category || "Templates",
         isPublic: req.body.isPublic === "true",
         uploadedBy: userId,
         tags: []
