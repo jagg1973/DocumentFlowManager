@@ -72,12 +72,8 @@ export default function Dashboard() {
     onSuccess: async (newProject) => {
       console.log("Project created successfully:", newProject);
       
-      // Clear stale cache completely
-      await queryClient.cancelQueries({ queryKey: ["/api/projects"] });
-      queryClient.removeQueries({ queryKey: ["/api/projects"] });
-      
-      // Force immediate refetch
-      await refetchProjects();
+      // Invalidate and refetch projects immediately
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       
       toast({
         title: "Success",
