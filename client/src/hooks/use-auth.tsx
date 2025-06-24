@@ -116,18 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: () => {
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
-      window.location.replace("/auth");
+      window.location.href = "/auth";
     },
     onError: () => {
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
-      window.location.replace("/auth");
+      window.location.href = "/auth";
     },
     onSettled: () => {
       // Fallback - always redirect after 500ms
       setTimeout(() => {
         if (window.location.pathname !== "/auth") {
-          window.location.replace("/auth");
+          window.location.href = "/auth";
         }
       }, 500);
     },
@@ -152,18 +152,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  const value = {
+    user: user ?? null,
+    isLoading,
+    error,
+    loginMutation,
+    logoutMutation,
+    registerMutation,
+    forgotPasswordMutation,
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        user: user ?? null,
-        isLoading,
-        error,
-        loginMutation,
-        logoutMutation,
-        registerMutation,
-        forgotPasswordMutation,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

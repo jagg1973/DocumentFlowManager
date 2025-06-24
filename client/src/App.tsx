@@ -47,14 +47,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-x-hidden">
-          <AuthProvider>
+      <AuthProvider>
+        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-x-hidden">
             <Router />
             <Toaster />
-          </AuthProvider>
-        </div>
-      </ThemeProvider>
+          </div>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

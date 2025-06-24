@@ -10,7 +10,7 @@ import { Link } from "wouter";
 import { Plus, Bell, FileText, Shield, Database, BarChart3, CheckCircle2, Clock, Calendar, Users, LogOut } from "lucide-react";
 import ProjectCard from "@/components/ProjectCard";
 import { ProjectWithStats } from "@/lib/types";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -145,14 +145,7 @@ export default function Dashboard() {
                   </Button>
                 </Link>
               )}
-              <Button 
-                variant="ghost" 
-                className="glass-button text-red-600 hover:text-red-700"
-                onClick={() => window.location.href = '/api/auth/logout'}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
+              <LogoutButton />
             </div>
           </div>
         </div>
@@ -176,6 +169,9 @@ export default function Dashboard() {
               <DialogContent className="glass-modal">
                 <DialogHeader>
                   <DialogTitle>Create New SEO Project</DialogTitle>
+                  <DialogDescription>
+                    Create a new SEO project to organize and track your optimization tasks.
+                  </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
