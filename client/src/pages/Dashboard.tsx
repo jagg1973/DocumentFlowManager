@@ -47,9 +47,9 @@ export default function Dashboard() {
   const { data: projects = [], isLoading: projectsLoading, error, refetch: refetchProjects } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
     enabled: !!user,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: false,
+    staleTime: 1000 * 2, // 2 seconds
+    gcTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: true,
   });
 
   // Calculate stats
@@ -65,6 +65,8 @@ export default function Dashboard() {
     },
   });
 
+  const { toast } = useToast();
+
   const createProjectMutation = useMutation({
     mutationFn: async (data: z.infer<typeof createProjectSchema>) => {
       return apiRequest("/api/projects", "POST", data);
@@ -72,12 +74,18 @@ export default function Dashboard() {
     onSuccess: async (newProject) => {
       console.log("Project created successfully:", newProject);
       
-      // Invalidate and refetch projects immediately
+      // Force refresh of projects list
+      queryClient.setQueryData(["/api/projects"], (oldData: ProjectWithStats[] | undefined) => {
+        if (!oldData) return [newProject];
+        return [...oldData, newProject];
+      });
+      
+      // Also invalidate to get fresh data from server
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       
       toast({
         title: "Success",
-        description: "Project created successfully",
+        description: `Project "${newProject.projectName}" created successfully`,
       });
       
       setCreateProjectOpen(false);

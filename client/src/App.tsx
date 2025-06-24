@@ -28,33 +28,33 @@ const queryClient = new QueryClient({
 
 function Router() {
   return (
-    <Switch>
-      <ProtectedRoute path="/" component={Dashboard} />
-      <AdminRoute path="/admin" component={AdminDashboard} />
-      <AdminRoute path="/admin/documents" component={AdminDocuments} />
-      <AdminRoute path="/admin/users" component={UserManagement} />
-      <AdminRoute path="/admin/reports" component={Reports} />
-      <ProtectedRoute path="/documents" component={ClientDocuments} />
-      <ProtectedRoute path="/settings" component={Settings} />
-      <Route path="/auth" component={AuthPage} />
-      <Route path="/privacy" component={PrivacyPolicy} />
-      <Route path="/terms" component={TermsOfService} />
-      <Route component={NotFound} />
-    </Switch>
+    <AuthProvider>
+      <Switch>
+        <ProtectedRoute path="/" component={Dashboard} />
+        <AdminRoute path="/admin" component={AdminDashboard} />
+        <AdminRoute path="/admin/documents" component={AdminDocuments} />
+        <AdminRoute path="/admin/users" component={UserManagement} />
+        <AdminRoute path="/admin/reports" component={Reports} />
+        <ProtectedRoute path="/documents" component={ClientDocuments} />
+        <ProtectedRoute path="/settings" component={Settings} />
+        <Route path="/auth" component={AuthPage} />
+        <Route path="/privacy" component={PrivacyPolicy} />
+        <Route path="/terms" component={TermsOfService} />
+        <Route component={NotFound} />
+      </Switch>
+    </AuthProvider>
   );
 }
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-x-hidden">
-            <Router />
-            <Toaster />
-          </div>
-        </ThemeProvider>
-      </AuthProvider>
+      <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-x-hidden">
+          <Router />
+          <Toaster />
+        </div>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
