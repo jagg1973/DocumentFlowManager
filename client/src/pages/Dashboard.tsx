@@ -48,7 +48,7 @@ export default function Dashboard() {
     queryKey: ["/api/projects"],
     enabled: !!user,
     staleTime: 0,
-    cacheTime: 0,
+    gcTime: 0,
     refetchOnWindowFocus: false,
   });
 
@@ -69,26 +69,19 @@ export default function Dashboard() {
     mutationFn: async (data: z.infer<typeof createProjectSchema>) => {
       return apiRequest("/api/projects", "POST", data);
     },
-    onSuccess: (newProject) => {
+    onSuccess: async (newProject) => {
+      console.log("Project created successfully:", newProject);
+      
+      // Clear stale cache completely
+      await queryClient.cancelQueries({ queryKey: ["/api/projects"] });
+      queryClient.removeQueries({ queryKey: ["/api/projects"] });
+      
+      // Force immediate refetch
+      await refetchProjects();
+      
       toast({
         title: "Success",
         description: "Project created successfully",
-      });
-      
-      // Force complete data refresh
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
-      queryClient.removeQueries({ queryKey: ["/api/projects"] });
-      
-      // Optimistically update the UI
-      const newProjectWithStats = {
-        ...newProject,
-        totalTasks: 0,
-        completedTasks: 0,
-        memberCount: 1
-      };
-      
-      queryClient.setQueryData(["/api/projects"], (oldData: ProjectWithStats[] | undefined) => {
-        return oldData ? [...oldData, newProjectWithStats] : [newProjectWithStats];
       });
       
       setCreateProjectOpen(false);

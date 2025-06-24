@@ -48,10 +48,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
-        <AuthProvider>
-          <Router />
-          <Toaster />
-        </AuthProvider>
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-x-hidden">
+          <AuthProvider>
+            <Router />
+            <Toaster />
+          </AuthProvider>
+        </div>
       </ThemeProvider>
     </QueryClientProvider>
   );
