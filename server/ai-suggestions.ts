@@ -84,12 +84,20 @@ Respond with JSON in this exact format:
       max_tokens: 2000
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response content from OpenAI");
+    }
+    
+    const result = JSON.parse(content);
     return result.suggestions || [];
 
   } catch (error) {
     console.error("Error generating AI task suggestions:", error);
-    throw new Error("Failed to generate task suggestions");
+    if (error instanceof Error && error.message.includes("API key")) {
+      throw new Error("OpenAI API key is not configured. Please add OPENAI_API_KEY to your environment variables.");
+    }
+    throw new Error("Failed to generate AI task suggestions. Please check your OpenAI configuration.");
   }
 }
 
@@ -147,7 +155,12 @@ Respond with JSON:
       max_tokens: 1500
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error("No response content from OpenAI");
+    }
+    
+    const result = JSON.parse(content);
     return {
       gaps: result.gaps || [],
       recommendations: result.recommendations || [],
@@ -156,6 +169,9 @@ Respond with JSON:
 
   } catch (error) {
     console.error("Error analyzing project gaps:", error);
-    throw new Error("Failed to analyze project gaps");
+    if (error instanceof Error && error.message.includes("API key")) {
+      throw new Error("OpenAI API key is not configured. Please add OPENAI_API_KEY to your environment variables.");
+    }
+    throw new Error("Failed to analyze project gaps. Please check your OpenAI configuration.");
   }
 }
