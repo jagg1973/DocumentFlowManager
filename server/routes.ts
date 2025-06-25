@@ -107,9 +107,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      // For now, redirect to download since we don't have file storage implemented
-      // In a real implementation, this would serve the file for inline viewing
-      res.redirect(`/api/documents/${documentId}/download`);
+      // Create an HTML preview for the document
+      const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${document.title} - Document Preview</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .content { background: #f8f9fa; padding: 20px; border-radius: 10px; line-height: 1.6; }
+        .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 20px 0; }
+        .meta-item { background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #667eea; }
+        .download-btn { background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>${document.title}</h1>
+        <p>${document.description || 'SEO Document Preview'}</p>
+    </div>
+    
+    <div class="meta">
+        <div class="meta-item"><strong>Category:</strong> ${document.category}</div>
+        <div class="meta-item"><strong>File Type:</strong> ${document.fileExtension?.toUpperCase()}</div>
+        <div class="meta-item"><strong>File Size:</strong> ${Math.round(document.fileSize / 1024)} KB</div>
+        <div class="meta-item"><strong>Downloads:</strong> ${document.downloadCount}</div>
+    </div>
+    
+    <div class="content">
+        <h2>Document Content Preview</h2>
+        <p>This is a preview of the SEO document. In a production environment, the actual document content would be displayed here.</p>
+        
+        <h3>Document Information</h3>
+        <ul>
+            <li><strong>Original Filename:</strong> ${document.originalFilename}</li>
+            <li><strong>Upload Date:</strong> ${new Date(document.createdAt).toLocaleDateString()}</li>
+            <li><strong>Last Modified:</strong> ${new Date(document.updatedAt).toLocaleDateString()}</li>
+        </ul>
+        
+        <p>This document contains valuable SEO information and guidelines. To access the full content, please download the document using the button below.</p>
+        
+        <a href="/api/documents/${documentId}/download" class="download-btn">Download Document</a>
+    </div>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html');
+      res.send(htmlContent);
     } catch (error) {
       console.error("Error viewing document:", error);
       res.status(500).json({ message: "Failed to view document" });
@@ -140,18 +187,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Increment download count
       await storage.incrementDownloadCount(documentId);
       
-      // Since we don't have actual file storage implemented yet, return document metadata
-      // In a real implementation, this would stream the actual file
-      res.json({
-        message: "Download functionality not fully implemented",
-        document: {
-          id: document.id,
-          title: document.title,
-          filename: document.originalFilename,
-          mimeType: document.mimeType,
-          fileSize: document.fileSize
-        }
-      });
+      // Create a sample file content for demonstration
+      const sampleContent = `SEO Document: ${document.title}
+
+This is a sample document for demonstration purposes.
+
+Document Details:
+- Title: ${document.title}
+- Category: ${document.category}
+- Original Filename: ${document.originalFilename}
+- File Size: ${document.fileSize} bytes
+- Downloads: ${document.downloadCount + 1}
+
+In a production environment, this would be the actual file content.
+      
+Generated on: ${new Date().toISOString()}`;
+
+      // Set appropriate headers for file download
+      res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${document.originalFilename}"`);
+      res.setHeader('Content-Length', Buffer.byteLength(sampleContent, 'utf8'));
+      
+      // Send the file content
+      res.send(sampleContent);
     } catch (error) {
       console.error("Error downloading document:", error);
       res.status(500).json({ message: "Failed to download document" });

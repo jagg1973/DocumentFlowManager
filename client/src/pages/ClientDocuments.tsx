@@ -63,24 +63,14 @@ export default function ClientDocuments() {
   // Handle document download
   const handleDownloadDocument = async (document: Document) => {
     try {
-      const response = await fetch(`/api/documents/${document.id}/download`, {
-        method: 'GET',
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Download failed');
-      }
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = document.originalFilename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // Create a direct link to trigger download
+      const link = document.createElement('a');
+      link.href = `/api/documents/${document.id}/download`;
+      link.download = document.originalFilename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       console.error('Download failed:', error);
     }
