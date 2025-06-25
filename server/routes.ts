@@ -86,6 +86,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Document view endpoint
+  app.get('/api/documents/:id/view', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user has access to this document
+      const hasAccess = await storage.checkDocumentAccess(userId, documentId);
+      if (!hasAccess.hasAccess && !document.isPublic) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // For now, redirect to download since we don't have file storage implemented
+      // In a real implementation, this would serve the file for inline viewing
+      res.redirect(`/api/documents/${documentId}/download`);
+    } catch (error) {
+      console.error("Error viewing document:", error);
+      res.status(500).json({ message: "Failed to view document" });
+    }
+  });
+
+  // Document download endpoint
+  app.get('/api/documents/:id/download', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user has access to this document
+      const hasAccess = await storage.checkDocumentAccess(userId, documentId);
+      if (!hasAccess.hasAccess && !document.isPublic) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Increment download count
+      await storage.incrementDownloadCount(documentId);
+      
+      // Since we don't have actual file storage implemented yet, return document metadata
+      // In a real implementation, this would stream the actual file
+      res.json({
+        message: "Download functionality not fully implemented",
+        document: {
+          id: document.id,
+          title: document.title,
+          filename: document.originalFilename,
+          mimeType: document.mimeType,
+          fileSize: document.fileSize
+        }
+      });
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      res.status(500).json({ message: "Failed to download document" });
+    }
+  });
+
   app.post('/api/documents', async (req: any, res: any) => {
     try {
       const userId = req.session?.userId;

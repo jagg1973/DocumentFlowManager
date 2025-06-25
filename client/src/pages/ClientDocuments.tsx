@@ -54,6 +54,38 @@ export default function ClientDocuments() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
 
+  // Handle document viewing
+  const handleViewDocument = (document: Document) => {
+    // Open document in new tab for viewing
+    window.open(`/api/documents/${document.id}/view`, '_blank');
+  };
+
+  // Handle document download
+  const handleDownloadDocument = async (document: Document) => {
+    try {
+      const response = await fetch(`/api/documents/${document.id}/download`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = document.originalFilename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
   // Fetch documents available to client
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["/api/documents", searchQuery, selectedCategory, activeTab],
@@ -280,11 +312,21 @@ export default function ClientDocuments() {
                         </div>
                         
                         <div className="flex gap-2 justify-center">
-                          <Button size="sm" variant="outline" className="glass-button">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="glass-button"
+                            onClick={() => handleViewDocument(document)}
+                          >
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          <Button size="sm" variant="outline" className="glass-button">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="glass-button"
+                            onClick={() => handleDownloadDocument(document)}
+                          >
                             <Download className="w-4 h-4 mr-1" />
                             Download
                           </Button>
@@ -352,10 +394,20 @@ export default function ClientDocuments() {
                     )}
                     
                     <div className="flex gap-2 justify-center">
-                      <Button size="sm" variant="outline" className="glass-button">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="glass-button"
+                        onClick={() => handleViewDocument(document)}
+                      >
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline" className="glass-button">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="glass-button"
+                        onClick={() => handleDownloadDocument(document)}
+                      >
                         <Download className="w-4 h-4" />
                       </Button>
                     </div>
