@@ -752,6 +752,74 @@ Generated on: ${new Date().toISOString()}`;
     }
   });
 
+  // Gamification endpoints
+  app.get('/api/gamification/badges/:userId', async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const badges = await storage.getUserBadges(userId);
+      res.json(badges);
+    } catch (error) {
+      console.error("Error fetching user badges:", error);
+      res.status(500).json({ message: "Failed to fetch badges" });
+    }
+  });
+
+  app.get('/api/gamification/stats/:userId', async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json({
+        experiencePoints: user.experiencePoints || 0,
+        currentLevel: user.currentLevel || 1,
+        totalBadges: user.totalBadges || 0,
+        streakDays: user.streakDays || 0,
+        tasksCompleted: user.tasksCompleted || 0,
+        averageRating: user.averageRating || "0.00",
+      });
+    } catch (error) {
+      console.error("Error fetching user stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get('/api/gamification/leaderboard/:category', async (req: any, res: any) => {
+    try {
+      const { category } = req.params;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const leaderboard = await storage.getLeaderboard(category, limit);
+      res.json(leaderboard);
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get('/api/gamification/activity/:userId', async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const activity = await db
+        .select()
+        .from(userActivityLog)
+        .where(eq(userActivityLog.userId, userId))
+        .orderBy(desc(userActivityLog.activityDate))
+        .limit(limit);
+      
+      res.json(activity);
+    } catch (error) {
+      console.error("Error fetching user activity:", error);
+      res.status(500).json({ message: "Failed to fetch activity" });
+    }
+  });
+
+  // Initialize achievements
+  storage.initializeAchievements().catch(console.error);
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -1016,6 +1016,179 @@ export class DatabaseStorage implements IStorage {
     })) as (DocumentVersion & { uploader: User })[];
   }
 
+  // Gamification Methods Implementation
+  async awardBadge(userId: string, badgeType: string, badgeName: string, description?: string, iconName?: string): Promise<UserBadge> {
+    const existingBadge = await db
+      .select()
+      .from(userBadges)
+      .where(and(eq(userBadges.userId, userId), eq(userBadges.badgeType, badgeType)))
+      .limit(1);
+
+    if (existingBadge.length > 0) {
+      return existingBadge[0];
+    }
+
+    const [newBadge] = await db.insert(userBadges).values({
+      userId,
+      badgeType,
+      badgeName,
+      badgeDescription: description || "",
+      iconName: iconName || "award",
+    }).returning();
+
+    await db.update(users)
+      .set({ 
+        totalBadges: sql`${users.totalBadges} + 1`,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId));
+
+    return newBadge;
+  }
+
+  async getUserBadges(userId: string): Promise<UserBadge[]> {
+    return await db
+      .select()
+      .from(userBadges)
+      .where(eq(userBadges.userId, userId))
+      .orderBy(desc(userBadges.earnedAt));
+  }
+
+  async logActivity(userId: string, activityType: string, pointsEarned: number, relatedId?: number): Promise<void> {
+    await db.insert(userActivityLog).values({
+      userId,
+      activityType,
+      pointsEarned,
+      relatedId,
+    });
+  }
+
+  async updateUserExperience(userId: string, points: number): Promise<void> {
+    const [updatedUser] = await db.update(users)
+      .set({
+        experiencePoints: sql`${users.experiencePoints} + ${points}`,
+        lastActivityDate: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    if (updatedUser) {
+      const newLevel = this.calculateUserLevel(updatedUser.experiencePoints || 0);
+      if (newLevel !== updatedUser.currentLevel) {
+        await db.update(users)
+          .set({ currentLevel: newLevel })
+          .where(eq(users.id, userId));
+      }
+    }
+  }
+
+  calculateUserLevel(experiencePoints: number): number {
+    if (experiencePoints < 100) return 1;
+    if (experiencePoints < 300) return 2;
+    if (experiencePoints < 600) return 3;
+    if (experiencePoints < 1000) return 4;
+    if (experiencePoints < 1500) return 5;
+    return Math.floor((experiencePoints - 1500) / 500) + 6;
+  }
+
+  async getLeaderboard(category: string, limit: number = 10): Promise<(Leaderboard & { user: User })[]> {
+    const topUsers = await db
+      .select()
+      .from(users)
+      .orderBy(desc(users.experiencePoints))
+      .limit(limit);
+
+    return topUsers.map((user, index) => ({
+      id: index + 1,
+      userId: user.id,
+      category,
+      rank: index + 1,
+      score: user.experiencePoints || 0,
+      lastUpdated: new Date(),
+      user
+    }));
+  }
+
+  async updateUserStreak(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) return;
+
+    const today = new Date();
+    const lastActivity = user.lastActivityDate;
+    let newStreak = 1;
+
+    if (lastActivity) {
+      const lastActivityDate = new Date(lastActivity);
+      const daysDiff = Math.floor((today.getTime() - lastActivityDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysDiff === 1) {
+        newStreak = (user.streakDays || 0) + 1;
+      } else if (daysDiff === 0) {
+        newStreak = user.streakDays || 1;
+      }
+    }
+
+    await db.update(users)
+      .set({
+        streakDays: newStreak,
+        lastActivityDate: today,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async checkAndAwardAchievements(userId: string): Promise<UserBadge[]> {
+    const user = await this.getUser(userId);
+    if (!user) return [];
+
+    const newBadges: UserBadge[] = [];
+
+    if (user.tasksCompleted === 1) {
+      const badge = await this.awardBadge(userId, "first_task", "First Steps", "Complete your first task", "target");
+      newBadges.push(badge);
+    }
+    if (user.tasksCompleted === 10) {
+      const badge = await this.awardBadge(userId, "task_master", "Task Master", "Complete 10 tasks", "trophy");
+      newBadges.push(badge);
+    }
+    if (user.currentLevel === 5) {
+      const badge = await this.awardBadge(userId, "rising_star", "Rising Star", "Reach level 5", "trending-up");
+      newBadges.push(badge);
+    }
+    if (user.streakDays === 7) {
+      const badge = await this.awardBadge(userId, "streak_warrior", "Streak Warrior", "Maintain a 7-day login streak", "flame");
+      newBadges.push(badge);
+    }
+
+    return newBadges;
+  }
+
+  async getAchievements(): Promise<Achievement[]> {
+    return await db
+      .select()
+      .from(achievements)
+      .where(eq(achievements.isActive, true))
+      .orderBy(achievements.category, achievements.requiredValue);
+  }
+
+  async initializeAchievements(): Promise<void> {
+    const achievementData = [
+      { name: "First Steps", description: "Complete your first task", iconName: "target", badgeColor: "green", requiredValue: 1, category: "tasks" },
+      { name: "Task Master", description: "Complete 10 tasks", iconName: "trophy", badgeColor: "gold", requiredValue: 10, category: "tasks" },
+      { name: "Rising Star", description: "Reach level 5", iconName: "trending-up", badgeColor: "pink", requiredValue: 5, category: "levels" },
+      { name: "Streak Warrior", description: "Maintain a 7-day login streak", iconName: "flame", badgeColor: "orange", requiredValue: 7, category: "streaks" },
+    ];
+
+    for (const achievement of achievementData) {
+      try {
+        await db.insert(achievements).values(achievement).onConflictDoNothing();
+      } catch (error) {
+        console.log("Achievement already exists:", achievement.name);
+      }
+    }
+  }
+
   async getAdminStats(): Promise<{
     totalDocuments: number;
     totalUsers: number;

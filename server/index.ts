@@ -15,26 +15,39 @@ const app = express();
 
 // Session configuration
 const PostgresSessionStore = connectPg(session);
-app.use(session({
-  store: new PostgresSessionStore({
-    pool,
-    createTableIfMissing: true,
-    pruneSessionInterval: 60 * 15, // Prune expired sessions every 15 minutes
-    pruneSessionCallback: (error, count) => {
-      if (error) console.error('Session pruning error:', error);
-      else if (count > 0) console.log(`Pruned ${count} expired sessions`);
-    }
-  }),
-  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  rolling: true, // Reset expiration on activity
-  cookie: {
-    secure: false,
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-  },
-}));
+// Session configuration with error handling
+try {
+  app.use(session({
+    store: new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true,
+      pruneSessionInterval: false, // Disable auto-pruning to prevent errors
+    }),
+    secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  }));
+} catch (error) {
+  console.warn('Session store initialization warning:', error.message);
+  // Fallback to memory store if PostgreSQL fails
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+    resave: false,
+    saveUninitialized: false,
+    rolling: true,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+    },
+  }));
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
