@@ -18,7 +18,7 @@ const PostgresSessionStore = connectPg(session);
 app.use(session({
   store: new PostgresSessionStore({
     pool,
-    createTableIfMissing: false,
+    createTableIfMissing: true,
     pruneSessionInterval: 60 * 15, // Prune expired sessions every 15 minutes
     pruneSessionCallback: (error, count) => {
       if (error) console.error('Session pruning error:', error);
