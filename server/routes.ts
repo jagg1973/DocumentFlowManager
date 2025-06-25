@@ -434,6 +434,34 @@ Generated on: ${new Date().toISOString()}`;
     }
   });
 
+  app.delete('/api/admin/users/:id', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      
+      const targetUserId = req.params.id;
+      
+      // Prevent deleting yourself
+      if (targetUserId === userId) {
+        return res.status(400).json({ error: 'Cannot delete your own account' });
+      }
+      
+      await storage.deleteUser(targetUserId);
+      
+      res.json({ success: true, message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   // Reports endpoints
   app.get('/api/admin/reports/overview', async (req: any, res: any) => {
     try {

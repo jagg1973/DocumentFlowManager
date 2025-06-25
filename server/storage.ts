@@ -83,6 +83,9 @@ export interface IStorage {
   // Update user role and member level
   updateUserRole(userId: string, role: string, memberLevel: string): Promise<void>;
   
+  // Delete user
+  deleteUser(userId: string): Promise<void>;
+  
   // Task Items operations
   createTaskItem(item: InsertTaskItem): Promise<TaskItem>;
   getTaskItems(taskId: number): Promise<TaskItem[]>;
@@ -433,6 +436,38 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error in searchUsers:", error);
       return [];
+    }
+  }
+
+  async updateUserRole(userId: string, role: string, memberLevel: string): Promise<void> {
+    try {
+      await db.update(users)
+        .set({
+          role: role as any,
+          memberLevel: memberLevel as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      throw error;
+    }
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      // Delete user data in correct order due to foreign key constraints
+      await db.delete(projectMembers).where(eq(projectMembers.userId, userId));
+      await db.delete(taskReviews).where(or(eq(taskReviews.reviewerId, userId), eq(taskReviews.revieweeId, userId)));
+      await db.delete(memberAuthorityHistory).where(eq(memberAuthorityHistory.userId, userId));
+      await db.delete(gracePeriodRequests).where(eq(gracePeriodRequests.userId, userId));
+      await db.delete(documentAccess).where(eq(documentAccess.userId, userId));
+      await db.delete(dmsDocuments).where(eq(dmsDocuments.uploadedBy, userId));
+      await db.delete(projects).where(eq(projects.ownerId, userId));
+      await db.delete(users).where(eq(users.id, userId));
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      throw error;
     }
   }
 

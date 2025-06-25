@@ -83,6 +83,26 @@ export default function UserManagement() {
     },
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return apiRequest(`/api/admin/users/${userId}`, "DELETE");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/manage"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const onEditUser = (userData: any) => {
     setSelectedUser(userData);
     editForm.setValue("role", userData.role || "client");
@@ -93,6 +113,12 @@ export default function UserManagement() {
   const onUpdateUser = (data: any) => {
     if (selectedUser) {
       updateUserMutation.mutate({ userId: selectedUser.id, data });
+    }
+  };
+
+  const handleDeleteUser = (userData: any) => {
+    if (window.confirm(`Are you sure you want to delete ${userData.firstName} ${userData.lastName}? This action cannot be undone.`)) {
+      deleteUserMutation.mutate(userData.id);
     }
   };
 
@@ -109,6 +135,7 @@ export default function UserManagement() {
       case 'C-Level': return <Crown className="w-4 h-4 text-purple-600" />;
       case 'Manager': return <Shield className="w-4 h-4 text-blue-600" />;
       case 'SEO Lead': return <Users className="w-4 h-4 text-green-600" />;
+      case 'SEO Expert': return <Settings className="w-4 h-4 text-orange-600" />;
       default: return <Eye className="w-4 h-4 text-gray-600" />;
     }
   };
@@ -292,6 +319,15 @@ export default function UserManagement() {
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteUser(userData)}
+                              disabled={deleteUserMutation.isPending}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -365,6 +401,7 @@ export default function UserManagement() {
                             <SelectItem value="C-Level">C-Level</SelectItem>
                             <SelectItem value="Manager">Manager</SelectItem>
                             <SelectItem value="SEO Lead">SEO Lead</SelectItem>
+                            <SelectItem value="SEO Expert">SEO Expert</SelectItem>
                             <SelectItem value="SEO Specialist">SEO Specialist</SelectItem>
                             <SelectItem value="Junior">Junior</SelectItem>
                             <SelectItem value="Intern">Intern</SelectItem>
