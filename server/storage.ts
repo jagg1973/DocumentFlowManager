@@ -80,6 +80,9 @@ export interface IStorage {
   // Search users for member invitation
   searchUsers(query: string): Promise<User[]>;
   
+  // Update user role and member level
+  updateUserRole(userId: string, role: string, memberLevel: string): Promise<void>;
+  
   // Task Items operations
   createTaskItem(item: InsertTaskItem): Promise<TaskItem>;
   getTaskItems(taskId: number): Promise<TaskItem[]>;
@@ -401,19 +404,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   async searchUsers(query: string): Promise<User[]> {
-    if (!query || query.length < 2) return [];
-    
-    const searchResults = await db
-      .select()
-      .from(users)
-      .where(
-        // Simple search by email, firstName, lastName
-        // In production, you might want to use full-text search
-        eq(users.email, query)
-      )
-      .limit(10);
-    
-    return searchResults;
+    try {
+      if (!query || query.trim() === '') {
+        // Return all users when no query provided (for admin user management)
+        const allUsers = await db
+          .select()
+          .from(users)
+          .orderBy(users.createdAt)
+          .limit(100);
+        return allUsers;
+      }
+      
+      const searchTerm = `%${query.toLowerCase()}%`;
+      const searchResults = await db
+        .select()
+        .from(users)
+        .where(
+          or(
+            ilike(users.email, searchTerm),
+            ilike(users.firstName, searchTerm),
+            ilike(users.lastName, searchTerm)
+          )
+        )
+        .orderBy(users.createdAt)
+        .limit(50);
+      
+      return searchResults;
+    } catch (error) {
+      console.error("Error in searchUsers:", error);
+      return [];
+    }
   }
 
   // Task Items operations

@@ -389,8 +389,20 @@ Generated on: ${new Date().toISOString()}`;
         return res.status(403).json({ error: 'Admin access required' });
       }
       
-      const users = await storage.searchUsers('');
-      res.json(users.slice(0, 50)); // Limit to 50 users for performance
+      const searchQuery = req.query.search as string || '';
+      const users = await storage.searchUsers(searchQuery);
+      
+      // Add additional user management data
+      const usersWithData = users.map(user => ({
+        ...user,
+        userRole: user.role || 'client',
+        memberLevel: user.memberLevel || 'SEO Specialist',
+        authorityScore: user.memberAuthority || 100,
+        tasksCompleted: user.tasksCompleted || 0,
+        averageRating: user.averageRating || '0.00'
+      }));
+      
+      res.json(usersWithData);
     } catch (error) {
       console.error("Error fetching users for management:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -409,8 +421,13 @@ Generated on: ${new Date().toISOString()}`;
         return res.status(403).json({ error: 'Admin access required' });
       }
       
-      // For demo purposes, just return success
-      res.json({ success: true, message: "User role updated" });
+      const targetUserId = req.params.id;
+      const { role, memberLevel } = req.body;
+      
+      // Update user role and member level
+      await storage.updateUserRole(targetUserId, role, memberLevel);
+      
+      res.json({ success: true, message: "User role updated successfully" });
     } catch (error) {
       console.error("Error updating user role:", error);
       res.status(500).json({ message: "Failed to update user role" });
