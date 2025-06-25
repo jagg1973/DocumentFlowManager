@@ -42,6 +42,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import ProjectGrid from "./ProjectGrid";
 import ProjectKanban from "./ProjectKanban";
+import CreateProjectModal from "./CreateProjectModal";
 import { ProjectWithStats } from "@/lib/types";
 
 interface ProjectDashboardProps {
@@ -173,10 +174,7 @@ export default function ProjectDashboard({ userId }: ProjectDashboardProps) {
             <BarChart3 className="w-4 h-4 mr-2" />
             Analytics
           </Button>
-          <Button className="glass-button bg-gradient-to-r from-blue-600 to-purple-600">
-            <Plus className="w-4 h-4 mr-2" />
-            New Project
-          </Button>
+          <CreateProjectModal />
         </div>
       </div>
 

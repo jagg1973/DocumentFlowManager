@@ -39,7 +39,7 @@ import {
   type InsertDocumentVersion,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc, asc, or, ilike, sql } from "drizzle-orm";
+import { eq, and, inArray, desc, asc, or, ilike, sql, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Organization operations
@@ -283,45 +283,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProjectsForUser(userId: string): Promise<Project[]> {
-    try {
-      // First get projects owned by user
-      const ownedProjects = await db
-        .select({
-          id: projects.id,
-          projectName: projects.projectName,
-          ownerId: projects.ownerId,
-          createdAt: projects.createdAt,
-        })
-        .from(projects)
-        .where(eq(projects.ownerId, userId))
-        .orderBy(desc(projects.createdAt));
+    console.log(`Fetching projects for user: ${userId}`);
+    
+    // Get projects where user is owner
+    const ownedProjects = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.ownerId, userId));
 
-      // Then get projects where user is a member
-      const memberProjects = await db
-        .select({
-          id: projects.id,
-          projectName: projects.projectName,
-          ownerId: projects.ownerId,
-          createdAt: projects.createdAt,
-        })
-        .from(projects)
-        .innerJoin(projectMembers, eq(projects.id, projectMembers.projectId))
-        .where(eq(projectMembers.userId, userId))
-        .orderBy(desc(projects.createdAt));
+    console.log(`Found ${ownedProjects.length} owned projects for user ${userId}`);
 
-      // Combine and deduplicate
-      const allProjects = [...ownedProjects, ...memberProjects];
-      const uniqueProjects = allProjects.filter((project, index, array) => 
-        array.findIndex(p => p.id === project.id) === index
-      );
+    // Get projects where user is a member
+    const memberProjects = await db
+      .select({
+        id: projects.id,
+        projectName: projects.projectName,
+        ownerId: projects.ownerId,
+        createdAt: projects.createdAt,
+      })
+      .from(projects)
+      .innerJoin(projectMembers, eq(projects.id, projectMembers.projectId))
+      .where(eq(projectMembers.userId, userId));
 
-      return uniqueProjects.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-    } catch (error) {
-      console.error("Error in getProjectsForUser:", error);
-      throw error;
-    }
+    console.log(`Found ${memberProjects.length} member projects for user ${userId}`);
+
+    // Combine and deduplicate
+    const allProjects = [...ownedProjects, ...memberProjects];
+    const uniqueProjects = allProjects.filter((project, index, self) => 
+      index === self.findIndex(p => p.id === project.id)
+    );
+
+    console.log(`Returning ${uniqueProjects.length} total unique projects`);
+    return uniqueProjects;
   }
 
   async updateProject(id: number, project: Partial<InsertProject>): Promise<Project | undefined> {

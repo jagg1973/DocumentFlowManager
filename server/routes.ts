@@ -38,36 +38,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Project routes
-  app.get('/api/projects', async (req: any, res: any) => {
+  // Projects endpoints
+  app.get("/api/projects", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
+      console.log(`Fetching projects for user: ${req.session.userId}`);
+      const projects = await storage.getProjectsForUser(req.session.userId);
+      console.log(`Raw projects from storage: ${projects.length}`);
       
-      // Simple direct query to bypass complex logic
-      const directProjects = await db.select().from(projects).where(eq(projects.ownerId, userId));
-      console.log(`Direct query found ${directProjects.length} projects for user ${userId}`);
-      
-      res.json(directProjects);
+      // Enhanced project data with statistics
+      const projectsWithStats = await Promise.all(
+        projects.map(async (project) => {
+          const tasks = await storage.getTasksForProject(project.id);
+          const totalTasks = tasks.length;
+          const completedTasks = tasks.filter(task => task.status === "completed").length;
+          const averageProgress = totalTasks > 0 ? 
+            Math.round(tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / totalTasks) : 0;
+
+          return {
+            ...project,
+            name: project.projectName, // Map projectName to name for frontend compatibility
+            totalTasks,
+            completedTasks,
+            averageProgress,
+            status: project.status || 'active',
+            priority: project.priority || 'medium',
+            pillar: project.pillar || 'Technical SEO',
+            phase: project.phase || 'Foundation'
+          };
+        })
+      );
+
+      console.log(`Returning ${projectsWithStats.length} projects with stats`);
+      res.json(projectsWithStats);
     } catch (error) {
       console.error("Error fetching projects:", error);
-      res.status(500).json({ message: "Failed to fetch projects", error: error.message });
+      res.status(500).json({ message: "Failed to fetch projects" });
     }
   });
 
-  app.post('/api/projects', async (req: any, res: any) => {
+  app.post("/api/projects", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
+      console.log("Creating project with data:", req.body);
+      const projectData = {
+        projectName: req.body.projectName || req.body.name || "Untitled Project",
+        ownerId: req.session.userId,
+      };
       
-      const project = await storage.createProject({
-        projectName: req.body.projectName,
-        ownerId: userId
-      });
+      console.log("Processed project data:", projectData);
+      const project = await storage.createProject(projectData);
+      console.log("Created project:", project);
       
       res.status(201).json(project);
     } catch (error) {

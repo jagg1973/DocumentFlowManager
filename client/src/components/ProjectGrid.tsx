@@ -35,6 +35,7 @@ import {
   Shield
 } from "lucide-react";
 import { Link } from "wouter";
+import CreateProjectModal from "./CreateProjectModal";
 import { ProjectWithStats } from "@/lib/types";
 
 interface ProjectGridProps {
@@ -446,10 +447,14 @@ export default function ProjectGrid({
               ? "Try adjusting your filters or search terms"
               : "Create your first SEO project to get started"}
           </p>
-          <Button className="glass-button">
-            <Plus className="w-4 h-4 mr-2" />
-            Create Project
-          </Button>
+          <CreateProjectModal
+            trigger={
+              <Button className="glass-button">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Project
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className={
