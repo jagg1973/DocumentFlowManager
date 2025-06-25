@@ -46,6 +46,22 @@ const documentCategories = [
   "Checklists"
 ];
 
+// Handle document viewing
+const handleViewDocument = (document: any) => {
+  window.open(`/api/documents/${document.id}/view`, '_blank');
+};
+
+// Handle document download
+const handleDownloadDocument = (document: any) => {
+  const link = document.createElement('a');
+  link.href = `/api/documents/${document.id}/download`;
+  link.download = document.originalFilename;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 const uploadSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -497,8 +513,17 @@ export default function AdminDocuments() {
                               size="sm"
                               variant="outline"
                               className="h-8 w-8 p-0"
+                              onClick={() => handleViewDocument(doc)}
                             >
                               <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleDownloadDocument(doc)}
+                            >
+                              <Download className="w-4 h-4" />
                             </Button>
                             <Button
                               size="sm"

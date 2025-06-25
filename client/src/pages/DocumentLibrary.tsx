@@ -64,6 +64,22 @@ export default function DocumentLibrary() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
+  // Handle document viewing
+  const handleViewDocument = (document: Document) => {
+    window.open(`/api/documents/${document.id}/view`, '_blank');
+  };
+
+  // Handle document download
+  const handleDownloadDocument = (document: Document) => {
+    const link = document.createElement('a');
+    link.href = `/api/documents/${document.id}/download`;
+    link.download = document.originalFilename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Fetch documents
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["/api/admin/documents", searchQuery, selectedCategory],
@@ -444,10 +460,20 @@ export default function DocumentLibrary() {
                     )}
                     
                     <div className={`flex gap-2 ${viewMode === "grid" ? "justify-center" : "ml-auto"}`}>
-                      <Button size="sm" variant="outline" className="glass-button">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="glass-button"
+                        onClick={() => handleViewDocument(document)}
+                      >
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline" className="glass-button">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="glass-button"
+                        onClick={() => handleDownloadDocument(document)}
+                      >
                         <Download className="w-4 h-4" />
                       </Button>
                       <Button size="sm" variant="outline" className="glass-button">

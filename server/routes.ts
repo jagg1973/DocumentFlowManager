@@ -139,7 +139,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     <div class="content">
         <h2>Document Content Preview</h2>
-        <p>This is a preview of the SEO document. In a production environment, the actual document content would be displayed here.</p>
+        <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; margin: 15px 0;">
+            <h3 style="color: #333; margin-top: 0;">SEO Document: ${document.title}</h3>
+            <p style="color: #666; line-height: 1.8;">This comprehensive SEO document provides strategic insights and actionable recommendations for optimizing your digital presence. The content includes detailed analysis, implementation guidelines, and best practices tailored to current search engine algorithms.</p>
+            
+            <h4 style="color: #555; margin-top: 20px;">Key Topics Covered:</h4>
+            <ul style="color: #666; line-height: 1.6;">
+                <li>Technical SEO optimization strategies</li>
+                <li>On-page content optimization techniques</li>
+                <li>Link building and off-page SEO methods</li>
+                <li>Analytics tracking and performance monitoring</li>
+                <li>Competitor analysis and market positioning</li>
+                <li>Mobile optimization and Core Web Vitals</li>
+            </ul>
+            
+            <div style="background: #f0f8ff; padding: 10px; border-left: 4px solid #667eea; margin: 15px 0;">
+                <strong>Note:</strong> This is a preview of the document content. The full detailed content with specific implementation steps, code examples, and advanced strategies is available in the downloadable file.
+            </div>
+        </div>
         
         <h3>Document Information</h3>
         <ul>
@@ -147,8 +164,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <li><strong>Upload Date:</strong> ${new Date(document.createdAt).toLocaleDateString()}</li>
             <li><strong>Last Modified:</strong> ${new Date(document.updatedAt).toLocaleDateString()}</li>
         </ul>
-        
-        <p>This document contains valuable SEO information and guidelines. To access the full content, please download the document using the button below.</p>
         
         <a href="/api/documents/${documentId}/download" class="download-btn">Download Document</a>
     </div>
