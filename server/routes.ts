@@ -581,8 +581,22 @@ Generated on: ${new Date().toISOString()}`;
         return res.status(401).json({ error: 'Not authenticated' });
       }
       
-      // In a real implementation, save settings to database
-      res.json({ success: true, message: "Settings updated successfully" });
+      const settingsData = req.body;
+      
+      // Validate the settings data
+      if (!settingsData || typeof settingsData !== 'object') {
+        return res.status(400).json({ error: 'Invalid settings data' });
+      }
+      
+      // In a production implementation, save to database
+      // For now, we'll simulate a successful save
+      console.log('Settings updated for user:', userId, settingsData);
+      
+      res.json({ 
+        success: true, 
+        message: "Settings updated successfully",
+        settings: settingsData 
+      });
     } catch (error) {
       console.error("Error updating settings:", error);
       res.status(500).json({ message: "Failed to update settings" });

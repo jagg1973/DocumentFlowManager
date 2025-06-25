@@ -58,7 +58,7 @@ export default function Settings() {
 
   const form = useForm<z.infer<typeof settingsSchema>>({
     resolver: zodResolver(settingsSchema),
-    defaultValues: settings || {
+    values: settings || {
       notifications: {
         email: true,
         desktop: false,
@@ -79,9 +79,13 @@ export default function Settings() {
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: z.infer<typeof settingsSchema>) => {
-      const res = await apiRequest("/api/settings", "PATCH", data);
-      if (!res.ok) throw new Error('Failed to update settings');
-      return res.json();
+      return apiRequest("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
     },
     onSuccess: () => {
       toast({
