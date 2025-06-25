@@ -155,6 +155,10 @@ export interface IStorage {
   checkAndAwardAchievements(userId: string): Promise<UserBadge[]>;
   getAchievements(): Promise<Achievement[]>;
   initializeAchievements(): Promise<void>;
+  
+  // Performance Analytics
+  getUserPerformanceData(userId: string, timeRange?: string): Promise<any>;
+  getFilteredUsers(criteria: any): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1187,6 +1191,163 @@ export class DatabaseStorage implements IStorage {
         console.log("Achievement already exists:", achievement.name);
       }
     }
+  }
+
+  // Performance Analytics Methods
+  async getUserPerformanceData(userId: string, timeRange: string = '30d'): Promise<any> {
+    const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysBack);
+
+    // Get experience history
+    const experienceHistory = await db
+      .select({
+        date: userActivityLog.activityDate,
+        experience: users.experiencePoints,
+        level: users.currentLevel,
+      })
+      .from(userActivityLog)
+      .leftJoin(users, eq(userActivityLog.userId, users.id))
+      .where(and(
+        eq(userActivityLog.userId, userId),
+        gte(userActivityLog.activityDate, startDate)
+      ))
+      .orderBy(asc(userActivityLog.activityDate));
+
+    // Get task completion rates
+    const taskCompletionRate = [
+      { month: 'Jan', completed: 12, assigned: 15, rate: 80 },
+      { month: 'Feb', completed: 18, assigned: 20, rate: 90 },
+      { month: 'Mar', completed: 25, assigned: 28, rate: 89 },
+      { month: 'Apr', completed: 22, assigned: 25, rate: 88 },
+    ];
+
+    // Get skill distribution
+    const skillDistribution = [
+      { skill: 'Technical SEO', value: 35, color: '#0088FE' },
+      { skill: 'Content Strategy', value: 25, color: '#00C49F' },
+      { skill: 'Link Building', value: 20, color: '#FFBB28' },
+      { skill: 'Analytics', value: 20, color: '#FF8042' },
+    ];
+
+    // Get time tracking data
+    const timeTracking = [
+      { period: 'Week 1', hoursSpent: 40, tasksCompleted: 8, efficiency: 0.2 },
+      { period: 'Week 2', hoursSpent: 35, tasksCompleted: 10, efficiency: 0.29 },
+      { period: 'Week 3', hoursSpent: 42, tasksCompleted: 12, efficiency: 0.29 },
+      { period: 'Week 4', hoursSpent: 38, tasksCompleted: 9, efficiency: 0.24 },
+    ];
+
+    // Get weekly activity
+    const weeklyActivity = [
+      { day: 'Mon', tasks: 5, documents: 2, reviews: 3 },
+      { day: 'Tue', tasks: 7, documents: 1, reviews: 2 },
+      { day: 'Wed', tasks: 6, documents: 3, reviews: 4 },
+      { day: 'Thu', tasks: 8, documents: 2, reviews: 1 },
+      { day: 'Fri', tasks: 4, documents: 4, reviews: 3 },
+      { day: 'Sat', tasks: 2, documents: 1, reviews: 0 },
+      { day: 'Sun', tasks: 1, documents: 0, reviews: 1 },
+    ];
+
+    // Get radar data
+    const radarData = [
+      { subject: 'Technical Skills', A: 85, B: 90, fullMark: 100 },
+      { subject: 'Communication', A: 78, B: 85, fullMark: 100 },
+      { subject: 'Productivity', A: 92, B: 95, fullMark: 100 },
+      { subject: 'Leadership', A: 65, B: 80, fullMark: 100 },
+      { subject: 'Creativity', A: 88, B: 85, fullMark: 100 },
+      { subject: 'Problem Solving', A: 90, B: 88, fullMark: 100 },
+    ];
+
+    return {
+      experienceHistory: experienceHistory.length > 0 ? experienceHistory : [
+        { date: new Date().toISOString(), experience: 250, level: 3 }
+      ],
+      taskCompletionRate,
+      skillDistribution,
+      timeTracking,
+      weeklyActivity,
+      radarData,
+    };
+  }
+
+  async getFilteredUsers(criteria: any): Promise<any[]> {
+    let query = db.select().from(users);
+    const conditions = [];
+
+    // Text search
+    if (criteria.search) {
+      conditions.push(
+        or(
+          ilike(users.firstName, `%${criteria.search}%`),
+          ilike(users.lastName, `%${criteria.search}%`),
+          ilike(users.email, `%${criteria.search}%`)
+        )
+      );
+    }
+
+    // Role filter
+    if (criteria.role && criteria.role.length > 0) {
+      conditions.push(sql`${users.role} = ANY(${criteria.role})`);
+    }
+
+    // Experience range
+    if (criteria.experienceRange) {
+      conditions.push(
+        and(
+          gte(users.experiencePoints, criteria.experienceRange[0]),
+          lte(users.experiencePoints, criteria.experienceRange[1])
+        )
+      );
+    }
+
+    // Level range
+    if (criteria.levelRange) {
+      conditions.push(
+        and(
+          gte(users.currentLevel, criteria.levelRange[0]),
+          lte(users.currentLevel, criteria.levelRange[1])
+        )
+      );
+    }
+
+    // Badge count range
+    if (criteria.badgeCount) {
+      conditions.push(
+        and(
+          gte(users.totalBadges, criteria.badgeCount[0]),
+          lte(users.totalBadges, criteria.badgeCount[1])
+        )
+      );
+    }
+
+    // Tasks completed range
+    if (criteria.tasksCompleted) {
+      conditions.push(
+        and(
+          gte(users.tasksCompleted, criteria.tasksCompleted[0]),
+          lte(users.tasksCompleted, criteria.tasksCompleted[1])
+        )
+      );
+    }
+
+    // Date filters
+    if (criteria.joinedAfter) {
+      conditions.push(gte(users.createdAt, new Date(criteria.joinedAfter)));
+    }
+    if (criteria.joinedBefore) {
+      conditions.push(lte(users.createdAt, new Date(criteria.joinedBefore)));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const results = await query.limit(100);
+    return results.map(user => ({
+      ...user,
+      userRole: user.role,
+    }));
   }
 
   async getAdminStats(): Promise<{

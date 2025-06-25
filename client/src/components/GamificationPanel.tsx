@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Trophy, Medal, TrendingUp, Flame, Users, Calendar, Star, Award } from "lucide-react";
 import BadgeDisplay from "@/components/ui/badge-display";
 import LevelProgress from "@/components/ui/level-progress";
+import PerformanceChart from "@/components/PerformanceChart";
+import AdvancedUserFilter from "@/components/AdvancedUserFilter";
 import { useAuth } from "@/hooks/use-auth";
 
 interface UserStats {
@@ -55,6 +57,12 @@ export default function GamificationPanel() {
   const { data: recentActivity = [] } = useQuery({
     queryKey: ["/api/gamification/activity", user?.id],
     enabled: !!user?.id,
+  });
+
+  // Fetch performance data
+  const { data: performanceData } = useQuery({
+    queryKey: ["/api/analytics/performance", user?.id, activeTab],
+    enabled: !!user?.id && activeTab === "performance",
   });
 
   if (!user) return null;
@@ -144,11 +152,13 @@ export default function GamificationPanel() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="badges">Badges</TabsTrigger>
           <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+          <TabsTrigger value="filters">User Filter</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -248,6 +258,26 @@ export default function GamificationPanel() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="performance" className="space-y-6">
+          {performanceData && (
+            <PerformanceChart 
+              data={performanceData} 
+              userId={user?.id || ""} 
+              timeRange="30d" 
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="filters" className="space-y-6">
+          <AdvancedUserFilter 
+            onFilterChange={(criteria) => {
+              console.log("Filter criteria changed:", criteria);
+            }}
+            showSaveFilter={true}
+            showBulkActions={true}
+          />
         </TabsContent>
       </Tabs>
     </div>

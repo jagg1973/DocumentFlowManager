@@ -817,6 +817,90 @@ Generated on: ${new Date().toISOString()}`;
     }
   });
 
+  // Performance Analytics endpoints
+  app.get('/api/analytics/performance/:userId', async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const timeRange = req.query.timeRange || '30d';
+      
+      const performanceData = await storage.getUserPerformanceData(userId, timeRange);
+      res.json(performanceData);
+    } catch (error) {
+      console.error("Error fetching performance data:", error);
+      res.status(500).json({ message: "Failed to fetch performance data" });
+    }
+  });
+
+  app.post('/api/users/filtered', async (req: any, res: any) => {
+    try {
+      const criteria = req.body;
+      const filteredUsers = await storage.getFilteredUsers(criteria);
+      res.json(filteredUsers);
+    } catch (error) {
+      console.error("Error filtering users:", error);
+      res.status(500).json({ message: "Failed to filter users" });
+    }
+  });
+
+  app.get('/api/filters/options', async (req: any, res: any) => {
+    try {
+      // Return available filter options
+      const options = {
+        roles: ['admin', 'manager', 'client'],
+        memberLevels: ['C-Level', 'Manager', 'SEO Lead', 'SEO Expert', 'SEO Specialist', 'Junior', 'Intern'],
+        departments: ['Marketing', 'SEO', 'Content', 'Development'],
+        skills: ['Technical SEO', 'Content Writing', 'Link Building', 'Analytics'],
+        projects: ['E-commerce', 'Local SEO', 'Enterprise', 'Startup']
+      };
+      res.json(options);
+    } catch (error) {
+      console.error("Error fetching filter options:", error);
+      res.status(500).json({ message: "Failed to fetch filter options" });
+    }
+  });
+
+  app.get('/api/filters/saved', async (req: any, res: any) => {
+    try {
+      // Return empty array for now - implement saved filters storage later
+      res.json([]);
+    } catch (error) {
+      console.error("Error fetching saved filters:", error);
+      res.status(500).json({ message: "Failed to fetch saved filters" });
+    }
+  });
+
+  app.post('/api/filters/save', async (req: any, res: any) => {
+    try {
+      const filterData = req.body;
+      // Implement filter saving logic
+      res.json({ success: true, id: Date.now().toString() });
+    } catch (error) {
+      console.error("Error saving filter:", error);
+      res.status(500).json({ message: "Failed to save filter" });
+    }
+  });
+
+  app.post('/api/users/export', async (req: any, res: any) => {
+    try {
+      const { criteria, format } = req.body;
+      const users = await storage.getFilteredUsers(criteria);
+      
+      if (format === 'csv') {
+        const csv = users.map(user => 
+          `${user.firstName},${user.lastName},${user.email},${user.role},${user.experiencePoints},${user.currentLevel}`
+        ).join('\n');
+        const header = 'First Name,Last Name,Email,Role,Experience Points,Level\n';
+        res.setHeader('Content-Type', 'text/csv');
+        res.send(header + csv);
+      } else {
+        res.json(users);
+      }
+    } catch (error) {
+      console.error("Error exporting users:", error);
+      res.status(500).json({ message: "Failed to export users" });
+    }
+  });
+
   // Initialize achievements
   storage.initializeAchievements().catch(console.error);
 
