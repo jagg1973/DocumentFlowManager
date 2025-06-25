@@ -143,6 +143,18 @@ export interface IStorage {
     downloadsThisWeek: number;
     storagePercentage: number;
   }>;
+  
+  // Gamification Methods
+  awardBadge(userId: string, badgeType: string, badgeName: string, description?: string, iconName?: string): Promise<UserBadge>;
+  getUserBadges(userId: string): Promise<UserBadge[]>;
+  logActivity(userId: string, activityType: string, pointsEarned: number, relatedId?: number): Promise<void>;
+  updateUserExperience(userId: string, points: number): Promise<void>;
+  calculateUserLevel(experiencePoints: number): number;
+  getLeaderboard(category: string, limit?: number): Promise<(Leaderboard & { user: User })[]>;
+  updateUserStreak(userId: string): Promise<void>;
+  checkAndAwardAchievements(userId: string): Promise<UserBadge[]>;
+  getAchievements(): Promise<Achievement[]>;
+  initializeAchievements(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {

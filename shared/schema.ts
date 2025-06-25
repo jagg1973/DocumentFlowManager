@@ -67,6 +67,12 @@ export const users = pgTable("users", {
   trustScore: integer("trust_score").default(50), // T: Trustworthiness
   tasksCompleted: integer("tasks_completed").default(0),
   averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0.00"),
+  // Gamification fields
+  experiencePoints: integer("experience_points").default(0),
+  currentLevel: integer("current_level").default(1),
+  totalBadges: integer("total_badges").default(0),
+  streakDays: integer("streak_days").default(0),
+  lastActivityDate: timestamp("last_activity_date"),
   isEmailVerified: boolean("is_email_verified").default(false),
   emailVerificationToken: varchar("email_verification_token"),
   passwordResetToken: varchar("password_reset_token"),
@@ -459,3 +465,81 @@ export type DocumentAccess = typeof documentAccess.$inferSelect;
 export type InsertDocumentAccess = z.infer<typeof insertDocumentAccessSchema>;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
 export type InsertDocumentVersion = z.infer<typeof insertDocumentVersionSchema>;
+
+// Gamification Tables
+
+// User Badges
+export const userBadges = pgTable("user_badges", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  badgeType: varchar("badge_type").notNull(),
+  badgeName: varchar("badge_name").notNull(),
+  badgeDescription: varchar("badge_description"),
+  iconName: varchar("icon_name").notNull(),
+  earnedAt: timestamp("earned_at").defaultNow(),
+});
+
+// Achievement Definitions
+export const achievements = pgTable("achievements", {
+  id: serial("id").primaryKey(),
+  name: varchar("name").notNull().unique(),
+  description: varchar("description").notNull(),
+  iconName: varchar("icon_name").notNull(),
+  badgeColor: varchar("badge_color").default("blue"),
+  requiredValue: integer("required_value").default(1),
+  category: varchar("category").notNull(),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User Activity Log
+export const userActivityLog = pgTable("user_activity_log", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  activityType: varchar("activity_type").notNull(),
+  pointsEarned: integer("points_earned").default(0),
+  relatedId: integer("related_id"),
+  activityDate: timestamp("activity_date").defaultNow(),
+});
+
+// Leaderboard entries
+export const leaderboard = pgTable("leaderboard", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  category: varchar("category").notNull(),
+  rank: integer("rank").notNull(),
+  score: integer("score").notNull(),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+});
+
+// Gamification Relations
+export const userBadgesRelations = relations(userBadges, ({ one }) => ({
+  user: one(users, {
+    fields: [userBadges.userId],
+    references: [users.id],
+  }),
+}));
+
+export const userActivityLogRelations = relations(userActivityLog, ({ one }) => ({
+  user: one(users, {
+    fields: [userActivityLog.userId],
+    references: [users.id],
+  }),
+}));
+
+export const leaderboardRelations = relations(leaderboard, ({ one }) => ({
+  user: one(users, {
+    fields: [leaderboard.userId],
+    references: [users.id],
+  }),
+}));
+
+// Gamification Types
+export type UserBadge = typeof userBadges.$inferSelect;
+export type InsertUserBadge = typeof userBadges.$inferInsert;
+export type Achievement = typeof achievements.$inferSelect;
+export type InsertAchievement = typeof achievements.$inferInsert;
+export type UserActivityLog = typeof userActivityLog.$inferSelect;
+export type InsertUserActivityLog = typeof userActivityLog.$inferInsert;
+export type Leaderboard = typeof leaderboard.$inferSelect;
+export type InsertLeaderboard = typeof leaderboard.$inferInsert;

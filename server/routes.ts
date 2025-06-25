@@ -6,8 +6,9 @@ import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { storage } from "./storage";
 import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
 import { db } from "./db";
-import { projects } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { projects, userActivityLog } from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
+import { awardExperience, updateStreak } from "./gamification";
 
 // Configure multer for file uploads
 const upload = multer({
