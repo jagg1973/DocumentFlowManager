@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import { setupAuth } from "./auth";
+import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { storage } from "./storage";
 import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
 import { db } from "./db";
@@ -22,8 +23,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
   });
 
-  // Auth middleware
-  setupAuth(app);
+  // Auth middleware - support both SAAS and Replit Auth
+  if (process.env.NODE_ENV === 'development') {
+    // Use SAAS auth in development
+    setupAuth(app);
+  } else {
+    // Use Replit Auth in production
+    try {
+      await setupReplitAuth(app);
+    } catch (error) {
+      console.warn('Replit Auth setup failed, falling back to SAAS auth:', error);
+      setupAuth(app);
+    }
+  }
 
   // Project routes
   app.get('/api/projects', async (req: any, res: any) => {

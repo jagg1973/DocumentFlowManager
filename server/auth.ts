@@ -93,14 +93,18 @@ export function setupAuth(app: Express) {
       // Find user by email
       const user = await storage.getUserByEmail(validatedData.email);
       if (!user || !user.password) {
+        console.log(`Login failed - user not found or no password: ${validatedData.email}`);
         return res.status(401).json({ error: 'Invalid email or password' });
       }
 
       // Check password
       const isPasswordValid = await comparePassword(validatedData.password, user.password);
       if (!isPasswordValid) {
+        console.log(`Login failed - invalid password for: ${validatedData.email}`);
         return res.status(401).json({ error: 'Invalid email or password' });
       }
+      
+      console.log(`Login successful for: ${validatedData.email}`);
 
       // Set session
       req.session.userId = user.id;
