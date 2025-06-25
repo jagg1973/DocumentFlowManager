@@ -21,7 +21,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <CardTitle className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
-              {project.projectName}
+              {project.name || project.projectName}
             </CardTitle>
             <p className="text-sm text-gray-500 mt-1">
               Created {new Date(project.createdAt).toLocaleDateString()}

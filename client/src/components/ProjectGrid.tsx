@@ -174,7 +174,7 @@ const ProjectGridCard = ({ project }: { project: ProjectWithStats }) => {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <CardTitle className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
-              {project.name}
+              {project.name || project.projectName}
             </CardTitle>
             <p className="text-sm text-gray-600 mt-1 line-clamp-2">
               {project.description || "SEO optimization project with comprehensive strategy implementation"}
@@ -261,7 +261,7 @@ const ProjectListItem = ({ project }: { project: ProjectWithStats }) => {
             <div className="w-2 h-12 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
             
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 truncate">{project.name}</h3>
+              <h3 className="font-semibold text-gray-900 truncate">{project.name || project.projectName}</h3>
               <p className="text-sm text-gray-600 truncate">
                 {project.description || "SEO optimization project"}
               </p>
@@ -314,7 +314,8 @@ export default function ProjectGrid({
   const [priorityFilter, setPriorityFilter] = useState("all");
   
   const filteredProjects = projects.filter(project => {
-    const matchesSearch = project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const projectName = project.name || project.projectName || '';
+    const matchesSearch = projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (project.description?.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = statusFilter === "all" || project.status === statusFilter;
     const matchesPriority = priorityFilter === "all" || project.priority === priorityFilter;

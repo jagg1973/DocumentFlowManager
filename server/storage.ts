@@ -42,6 +42,12 @@ import { db } from "./db";
 import { eq, and, inArray, desc, asc, or, ilike, sql } from "drizzle-orm";
 
 export interface IStorage {
+  // Organization operations
+  createOrganization(organization: InsertOrganization): Promise<Organization>;
+  getOrganization(id: number): Promise<Organization | undefined>;
+  getOrganizationByDomain(domain: string): Promise<Organization | undefined>;
+  updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization | undefined>;
+  
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
@@ -60,6 +66,7 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   getProject(id: number): Promise<Project | undefined>;
   getProjectsForUser(userId: string): Promise<Project[]>;
+  getProjectsForOrganization(organizationId: number): Promise<Project[]>;
   updateProject(id: number, project: Partial<InsertProject>): Promise<Project | undefined>;
   deleteProject(id: number): Promise<void>;
   
@@ -1271,9 +1278,14 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getFilteredUsers(criteria: any): Promise<any[]> {
+  async getFilteredUsers(criteria: any, organizationId?: number): Promise<any[]> {
     let query = db.select().from(users);
     const conditions = [];
+
+    // Organization filter for multi-tenancy
+    if (organizationId) {
+      conditions.push(eq(users.organizationId, organizationId));
+    }
 
     // Text search
     if (criteria.search) {
