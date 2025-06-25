@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,20 @@ import Footer from "@/components/Footer";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  
+  // Handle quick action clicks
+  const handleUploadDocuments = () => {
+    setLocation('/admin/documents?action=upload');
+  };
+  
+  const handleManageUsers = () => {
+    setLocation('/admin/users');
+  };
+  
+  const handleViewReports = () => {
+    setLocation('/admin/reports');
+  };
   
   // Fetch admin statistics
   const { data: stats } = useQuery({
@@ -216,15 +230,24 @@ export default function AdminDashboard() {
                       Manage Documents
                     </Button>
                   </Link>
-                  <Button className="w-full glass-button justify-start">
+                  <Button 
+                    className="w-full glass-button justify-start"
+                    onClick={handleUploadDocuments}
+                  >
                     <Upload className="w-4 h-4 mr-2" />
                     Upload Documents
                   </Button>
-                  <Button className="w-full glass-button justify-start">
+                  <Button 
+                    className="w-full glass-button justify-start"
+                    onClick={handleManageUsers}
+                  >
                     <Users className="w-4 h-4 mr-2" />
                     Manage Users
                   </Button>
-                  <Button className="w-full glass-button justify-start">
+                  <Button 
+                    className="w-full glass-button justify-start"
+                    onClick={handleViewReports}
+                  >
                     <BarChart3 className="w-4 h-4 mr-2" />
                     View Reports
                   </Button>

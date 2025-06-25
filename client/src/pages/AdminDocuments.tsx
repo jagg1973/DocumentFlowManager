@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,10 +57,21 @@ const uploadSchema = z.object({
 export default function AdminDocuments() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [location] = useLocation();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Check for upload action in URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'upload') {
+      setUploadOpen(true);
+      // Clean up URL without reload
+      window.history.replaceState({}, '', '/admin/documents');
+    }
+  }, [location]);
 
   // Fetch documents with admin privileges
   const { data: documents = [], isLoading } = useQuery({
