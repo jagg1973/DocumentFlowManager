@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { Plus, Bell, FileText, Shield, Database, BarChart3, CheckCircle2, Clock, Calendar, Users, LogOut, Trophy } from "lucide-react";
-import ProjectCard from "@/components/ProjectCard";
+import ProjectDashboard from "@/components/ProjectDashboard";
 import { ProjectWithStats } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { useForm } from "react-hook-form";
