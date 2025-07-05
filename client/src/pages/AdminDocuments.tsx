@@ -47,19 +47,31 @@ const documentCategories = [
 ];
 
 // Handle document viewing
-const handleViewDocument = (document: any) => {
-  window.open(`/api/documents/${document.id}/view`, '_blank');
+const handleViewDocument = (doc: any) => {
+  window.open(`/api/documents/${doc.id}/view`, '_blank');
 };
 
 // Handle document download
-const handleDownloadDocument = (document: any) => {
-  const link = document.createElement('a');
-  link.href = `/api/documents/${document.id}/download`;
-  link.download = document.originalFilename;
-  link.style.display = 'none';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+const handleDownloadDocument = (doc: any) => {
+  try {
+    console.log('AdminDocuments: Download function called with doc:', doc);
+    console.log('AdminDocuments: Type of window.document:', typeof window.document);
+    
+    const link = window.document.createElement('a');
+    console.log('AdminDocuments: Successfully created link element:', link);
+    
+    link.href = `/api/documents/${doc.id}/download`;
+    link.download = doc.originalFilename;
+    link.style.display = 'none';
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+    
+    console.log('AdminDocuments: Download completed successfully');
+  } catch (error) {
+    console.error('AdminDocuments: Download failed:', error);
+    console.error('AdminDocuments: Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
+  }
 };
 
 const uploadSchema = z.object({
@@ -91,12 +103,15 @@ export default function AdminDocuments() {
 
   // Fetch documents with admin privileges
   const { data: documents = [], isLoading } = useQuery({
-    queryKey: ["/api/admin/documents", searchQuery, selectedCategory],
-    queryFn: () => {
+    queryKey: ["/api/documents", searchQuery, selectedCategory],
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
       if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
-      return fetch(`/api/admin/documents?${params}`).then(res => res.json());
+      const url = `/api/documents?${params}`;
+      const response = await apiRequest(url, "GET");
+      // Extract data from API response wrapper
+      return response.data || response || [];
     },
   });
 
@@ -125,9 +140,10 @@ export default function AdminDocuments() {
         formData.append("file", selectedFile);
       }
 
-      const res = await fetch("/api/admin/documents/upload", {
+      const res = await fetch("/api/documents/upload", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
 
       if (!res.ok) {
@@ -143,7 +159,7 @@ export default function AdminDocuments() {
         description: "Document uploaded successfully",
       });
       // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setUploadOpen(false);
@@ -161,7 +177,7 @@ export default function AdminDocuments() {
 
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      const res = await apiRequest(`/api/admin/documents/${documentId}`, "DELETE");
+      const res = await apiRequest(`/api/documents/${documentId}`, "DELETE");
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(errorText || "Delete failed");
@@ -174,7 +190,7 @@ export default function AdminDocuments() {
         description: "Document deleted successfully",
       });
       // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
     },

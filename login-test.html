@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        .form-group { 
+            margin-bottom: 20px; 
+        }
+        label { 
+            display: block; 
+            margin-bottom: 5px; 
+            font-weight: bold;
+            color: #333;
+        }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 2px solid #ddd; 
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+        button { 
+            width: 100%;
+            padding: 12px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; 
+            border: none; 
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        #result { 
+            margin-top: 20px; 
+            padding: 15px; 
+            border-radius: 5px; 
+            display: none;
+        }
+        .success { 
+            background: #d4edda; 
+            color: #155724; 
+            border: 1px solid #c3e6cb;
+        }
+        .error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .loading {
+            text-align: center;
+            margin-top: 10px;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>🔐 Login Test</h1>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" value="jaguzman123@hotmail.com" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" value="admin123" required>
+            </div>
+            
+            <button type="submit" id="loginBtn">Login</button>
+            <button type="button" id="checkAuthBtn">Check Auth Status</button>
+            <button type="button" id="registerBtn">Register User</button>
+        </form>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const form = document.getElementById('loginForm');
+        const result = document.getElementById('result');
+        const loginBtn = document.getElementById('loginBtn');
+        const checkAuthBtn = document.getElementById('checkAuthBtn');
+        const registerBtn = document.getElementById('registerBtn');
+
+        function showResult(message, type = 'info') {
+            result.style.display = 'block';
+            result.className = type;
+            result.innerHTML = message;
+        }
+
+        function setLoading(isLoading) {
+            loginBtn.disabled = isLoading;
+            checkAuthBtn.disabled = isLoading;
+            registerBtn.disabled = isLoading;
+            if (isLoading) {
+                showResult('<div class="loading">⏳ Processing...</div>', 'info');
+            }
+        }
+
+        // Check authentication status
+        checkAuthBtn.addEventListener('click', async () => {
+            setLoading(true);
+            try {
+                const response = await fetch('/api/auth/me', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`
+                        <strong>✅ Authentication Status:</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'success');
+                } else {
+                    showResult(`
+                        <strong>❌ Not Authenticated:</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'error');
+                }
+            } catch (error) {
+                showResult(`<strong>❌ Error:</strong><br>${error.message}`, 'error');
+            }
+            setLoading(false);
+        });
+
+        // Register user (in case account doesn't exist)
+        registerBtn.addEventListener('click', async () => {
+            setLoading(true);
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: email,
+                        password: password,
+                        first_name: 'Test',
+                        last_name: 'User'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`
+                        <strong>✅ Registration Successful:</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'success');
+                } else {
+                    showResult(`
+                        <strong>⚠️ Registration Response:</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'info');
+                }
+            } catch (error) {
+                showResult(`<strong>❌ Registration Error:</strong><br>${error.message}`, 'error');
+            }
+            setLoading(false);
+        });
+
+        // Login form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                // Try login
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult(`
+                        <strong>✅ Login Successful!</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        <br>
+                        <a href="/" style="color: #667eea; text-decoration: none; font-weight: bold;">🏠 Go to Dashboard</a>
+                    `, 'success');
+                } else {
+                    showResult(`
+                        <strong>❌ Login Failed:</strong><br>
+                        Status: ${response.status}<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `, 'error');
+                }
+            } catch (error) {
+                showResult(`<strong>❌ Network Error:</strong><br>${error.message}`, 'error');
+            }
+            setLoading(false);
+        });
+
+        // Check auth status on page load
+        window.addEventListener('load', () => {
+            checkAuthBtn.click();
+        });
+    </script>
+</body>
+</html>

@@ -55,19 +55,18 @@ export default function ClientDocuments() {
   const [activeTab, setActiveTab] = useState("all");
 
   // Handle document viewing
-  const handleViewDocument = (document: Document) => {
-    // Open document in new tab for viewing
-    window.open(`/api/documents/${document.id}/view`, '_blank');
+  const handleViewDocument = (doc: Document) => {
+    window.open(`/api/documents/${doc.id}/view`, '_blank');
   };
 
   // Handle document download
-  const handleDownloadDocument = async (document: Document) => {
+  const handleDownloadDocument = async (doc: Document) => {
     try {
-      // Create a direct link to trigger download
       const link = document.createElement('a');
-      link.href = `/api/documents/${document.id}/download`;
-      link.download = document.originalFilename;
+      link.href = `/api/documents/${doc.id}/download`;
+      link.download = doc.originalFilename;
       link.style.display = 'none';
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -79,12 +78,14 @@ export default function ClientDocuments() {
   // Fetch documents available to client
   const { data: documents = [], isLoading } = useQuery({
     queryKey: ["/api/documents", searchQuery, selectedCategory, activeTab],
-    queryFn: () => {
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
       if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
       if (activeTab !== "all") params.append("filter", activeTab);
-      return fetch(`/api/documents?${params}`).then(res => res.json());
+      const response = await fetch(`/api/documents?${params}`).then(res => res.json());
+      // Extract data from API response wrapper
+      return response.data || response || [];
     },
   });
 
@@ -130,13 +131,16 @@ export default function ClientDocuments() {
   ];
 
   const filteredDocuments = Array.isArray(documents) ? documents.filter((doc: Document) => {
+    // Ensure doc is valid and has required properties
+    if (!doc || !doc.createdAt) return false;
+    
     if (activeTab === "recent") {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
       return new Date(doc.createdAt) > weekAgo;
     }
     if (activeTab === "popular") {
-      return doc.downloadCount > 5;
+      return (doc.downloadCount || 0) > 5;
     }
     return true;
   }) : [];
@@ -232,18 +236,17 @@ export default function ClientDocuments() {
               <p className="text-2xl font-bold">{filteredDocuments.length}</p>
               <p className="text-sm text-gray-600">Available Documents</p>
             </CardContent>
-          </Card>
-          <Card className="glass-card">
+          </Card>            <Card className="glass-card">
             <CardContent className="p-4 text-center">
               <Bookmark className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-              <p className="text-2xl font-bold">{projectDocuments.length}</p>
+              <p className="text-2xl font-bold">{Array.isArray(projectDocuments) ? projectDocuments.length : 0}</p>
               <p className="text-sm text-gray-600">Project Documents</p>
             </CardContent>
           </Card>
           <Card className="glass-card">
             <CardContent className="p-4 text-center">
               <FolderOpen className="w-8 h-8 mx-auto mb-2 text-green-500" />
-              <p className="text-2xl font-bold">{new Set(filteredDocuments.map((doc: Document) => doc.category)).size}</p>
+              <p className="text-2xl font-bold">{new Set(filteredDocuments.map((doc: Document) => doc.category || 'Uncategorized')).size}</p>
               <p className="text-sm text-gray-600">Categories</p>
             </CardContent>
           </Card>
@@ -257,7 +260,7 @@ export default function ClientDocuments() {
         ) : activeTab === "project" ? (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold specular-highlight mb-4">Documents from Your SEO Projects</h2>
-            {projectDocuments.length === 0 ? (
+            {!Array.isArray(projectDocuments) || projectDocuments.length === 0 ? (
               <Card className="glass-card">
                 <CardContent className="p-8 text-center">
                   <Bookmark className="w-16 h-16 mx-auto mb-4 text-gray-400" />
@@ -272,32 +275,32 @@ export default function ClientDocuments() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {projectDocuments.map((document: any) => (
+                {Array.isArray(projectDocuments) && projectDocuments.map((document: any) => (
                   <Card key={document.id} className="glass-card liquid-border group hover:shadow-xl transition-all duration-300">
                     <CardContent className="p-6">
                       <div className="space-y-4">
                         <div className="text-center">
                           <div className={cn(
                             "p-4 rounded-xl bg-gradient-to-r shadow-lg w-16 h-16 mx-auto",
-                            getFileIcon(document.fileExtension)
+                            getFileIcon(document.fileExtension || '')
                           )}>
                             <FileIcon className="text-white w-8 h-8" />
                           </div>
                         </div>
                         
                         <div className="space-y-2">
-                          <h3 className="font-semibold text-lg specular-highlight text-center">{document.title}</h3>
+                          <h3 className="font-semibold text-lg specular-highlight text-center">{document.title || 'Untitled'}</h3>
                           <Badge variant="outline" className="glass-badge w-full text-center">
-                            Project: {document.projectName}
+                            Project: {document.projectName || 'Unknown Project'}
                           </Badge>
                           <Badge variant="secondary" className="w-full text-center">
-                            Task: {document.taskName}
+                            Task: {document.taskName || 'Unknown Task'}
                           </Badge>
                         </div>
                         
                         <div className="text-center space-y-1">
                           <p className="text-xs text-gray-500">
-                            {formatFileSize(document.fileSize)}
+                            {formatFileSize(document.fileSize || 0)}
                           </p>
                         </div>
                         
@@ -350,7 +353,7 @@ export default function ClientDocuments() {
                     
                     <div className="space-y-2">
                       <Badge variant="outline" className="glass-badge w-full text-center">
-                        {document.category}
+                        {document.category || 'Uncategorized'}
                       </Badge>
                       {document.subcategory && (
                         <Badge variant="secondary" className="w-full text-center text-xs">
@@ -361,14 +364,14 @@ export default function ClientDocuments() {
                     
                     <div className="text-center space-y-1">
                       <p className="text-xs text-gray-500">
-                        {formatFileSize(document.fileSize)} • {document.downloadCount} downloads
+                        {formatFileSize(document.fileSize || 0)} • {document.downloadCount || 0} downloads
                       </p>
                       <p className="text-xs text-gray-500">
-                        By {document.uploader.firstName} {document.uploader.lastName}
+                        By {document.uploader?.firstName || 'Unknown'} {document.uploader?.lastName || ''}
                       </p>
                     </div>
                     
-                    {document.tags.length > 0 && (
+                    {(document.tags && document.tags.length > 0) && (
                       <div className="flex flex-wrap gap-1 justify-center">
                         {document.tags.slice(0, 3).map((tag, index) => (
                           <Badge key={index} variant="outline" className="text-xs">

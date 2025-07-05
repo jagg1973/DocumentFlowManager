@@ -65,43 +65,61 @@ export default function DocumentLibrary() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Handle document viewing
-  const handleViewDocument = (document: Document) => {
-    window.open(`/api/documents/${document.id}/view`, '_blank');
+  const handleViewDocument = (doc: Document) => {
+    window.open(`/api/documents/${doc.id}/view`, '_blank');
   };
 
   // Handle document download
-  const handleDownloadDocument = (document: Document) => {
-    const link = document.createElement('a');
-    link.href = `/api/documents/${document.id}/download`;
-    link.download = document.originalFilename;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadDocument = (doc: Document) => {
+    try {
+      console.log('DocumentLibrary: Download function called with doc:', doc);
+      console.log('DocumentLibrary: Type of window.document:', typeof window.document);
+      
+      const link = window.document.createElement('a');
+      console.log('DocumentLibrary: Successfully created link element:', link);
+      
+      link.href = `/api/documents/${doc.id}/download`;
+      link.download = doc.originalFilename;
+      link.style.display = 'none';
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      
+      console.log('DocumentLibrary: Download completed successfully');
+    } catch (error) {
+      console.error('DocumentLibrary: Download failed:', error);
+      console.error('DocumentLibrary: Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
+    }
   };
 
   // Fetch documents
   const { data: documents = [], isLoading } = useQuery({
-    queryKey: ["/api/admin/documents", searchQuery, selectedCategory],
-    queryFn: () => {
+    queryKey: ["/api/documents", searchQuery, selectedCategory],
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.append("search", searchQuery);
       if (selectedCategory && selectedCategory !== "all") params.append("category", selectedCategory);
-      return fetch(`/api/admin/documents?${params}`).then(res => res.json());
+      const response = await fetch(`/api/documents?${params}`).then(res => res.json());
+      // Extract data from API response wrapper
+      return response.data || response || [];
     },
   });
 
   // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      return apiRequest("/api/admin/documents/upload", {
+      const res = await fetch("/api/documents/upload", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
+      if (!res.ok) {
+        throw new Error('Upload failed');
+      }
+      return res.json();
     },
     onSuccess: () => {
       // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setShowUploadModal(false);
@@ -122,13 +140,17 @@ export default function DocumentLibrary() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      return apiRequest(`/api/admin/documents/${documentId}`, {
+      const res = await fetch(`/api/documents/${documentId}`, {
         method: "DELETE",
+        credentials: "include",
       });
+      if (!res.ok) {
+        throw new Error('Delete failed');
+      }
+      return res.json();
     },
     onSuccess: () => {
       // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       toast({
