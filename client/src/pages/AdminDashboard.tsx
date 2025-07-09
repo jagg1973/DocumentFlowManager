@@ -92,7 +92,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/">
-                <Button variant="outline" className="glass-button">
+                <Button variant="outline" className="glass-button btn-text text-crisp">
                   <Activity className="w-4 h-4 mr-2" />
                   SEO Timeline
                 </Button>
@@ -225,27 +225,27 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Link href="/admin/documents">
-                    <Button className="w-full glass-button justify-start">
+                    <Button className="w-full admin-quick-action justify-start btn-text text-crisp">
                       <FileText className="w-4 h-4 mr-2" />
                       Manage Documents
                     </Button>
                   </Link>
                   <Button 
-                    className="w-full glass-button justify-start"
+                    className="w-full admin-quick-action justify-start btn-text text-crisp"
                     onClick={handleUploadDocuments}
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     Upload Documents
                   </Button>
                   <Button 
-                    className="w-full glass-button justify-start"
+                    className="w-full admin-quick-action justify-start btn-text text-crisp"
                     onClick={handleManageUsers}
                   >
                     <Users className="w-4 h-4 mr-2" />
                     Manage Users
                   </Button>
                   <Button 
-                    className="w-full glass-button justify-start"
+                    className="w-full admin-quick-action justify-start btn-text text-crisp"
                     onClick={handleViewReports}
                   >
                     <BarChart3 className="w-4 h-4 mr-2" />
@@ -261,7 +261,7 @@ export default function AdminDashboard() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="specular-highlight">Document Management</CardTitle>
                 <Link href="/admin/documents">
-                  <Button className="glass-button">
+                  <Button className="glass-button btn-text text-crisp">
                     <FileText className="w-4 h-4 mr-2" />
                     Full Document Library
                   </Button>

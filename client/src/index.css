@@ -253,22 +253,25 @@
 }
 
 .glass-button {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.08));
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transition: all 0.2s ease;
+  color: rgba(51, 65, 85, 0.9); /* Ensure text is visible */
 }
 
 .glass-button:hover {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.2));
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.4);
   transform: translateY(-1px);
   box-shadow: 
-    0 6px 20px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 6px 20px rgba(59, 130, 246, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  color: rgba(59, 130, 246, 0.9); /* Blue text on hover */
 }
 
 /* Fix blue buttons becoming white on hover */
@@ -277,6 +280,15 @@
 .glass-button.bg-gradient-to-r:hover {
   background: linear-gradient(145deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9)) !important;
   color: white !important;
+  border: 1px solid rgba(59, 130, 246, 0.7) !important;
+}
+
+/* Outline/variant buttons need special treatment */
+.glass-button[data-variant="outline"]:hover,
+.glass-button.variant-outline:hover {
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: rgba(59, 130, 246, 1);
 }
 
 /* Improved card hover effects - Smooth and stable */
@@ -416,21 +428,24 @@
   }
   
   .glass-button {
-    background: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow: 
       0 4px 12px rgba(0, 0, 0, 0.1),
       inset 0 1px 0 rgba(255, 255, 255, 0.3);
     transition: all 0.3s ease;
+    color: rgba(51, 65, 85, 0.85);
   }
   
   .glass-button:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.06));
+    border: 1px solid rgba(59, 130, 246, 0.3);
     box-shadow: 
-      0 6px 20px rgba(0, 0, 0, 0.15),
+      0 6px 20px rgba(59, 130, 246, 0.12),
       inset 0 1px 0 rgba(255, 255, 255, 0.4);
     transform: translateY(-2px);
+    color: rgba(59, 130, 246, 0.9);
   }
   
   .gantt-task {
@@ -568,6 +583,38 @@
       inset 0 2px 4px rgba(0, 0, 0, 0.1),
       0 0 0 2px rgba(59, 130, 246, 0.3),
       0 2px 8px rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Enhanced Admin Button Styles */
+  .admin-quick-action {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 14px;
+    color: rgba(51, 65, 85, 0.9);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 
+      0 3px 12px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  
+  .admin-quick-action:hover {
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    color: rgba(59, 130, 246, 1);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 
+      0 8px 25px rgba(59, 130, 246, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+  
+  .admin-quick-action:active {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: 
+      0 4px 15px rgba(59, 130, 246, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
   }
 }
 
