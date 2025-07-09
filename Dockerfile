@@ -20,11 +20,8 @@ WORKDIR /app
 
 # Install only production dependencies
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/client/dist ./client/dist
+RUN npm ci --only=production && npm cache clean --force    # Copy built application from builder stage
+    COPY --from=builder /app/dist ./dist
 
 # Copy necessary files
 COPY shared ./shared

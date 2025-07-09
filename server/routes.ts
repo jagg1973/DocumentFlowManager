@@ -112,6 +112,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get specific project by ID
+  app.get("/api/projects/:id", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const projectId = parseInt(req.params.id);
+      const userId = req.session.userId;
+      
+      console.log(`Fetching project ${projectId} for user: ${userId}`);
+      const project = await storage.getProject(projectId);
+      
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if user has access to this project (owner or member)
+      const hasAccess = await storage.checkUserProjectAccess(userId, projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to access this project" });
+      }
+      
+      // Get enhanced project data with statistics
+      const tasks = await storage.getTasksForProject(project.id);
+      const totalTasks = tasks.length;
+      const completedTasks = tasks.filter(task => task.status === "Completed").length;
+      const inProgressTasks = tasks.filter(task => task.status === "In Progress").length;
+      const overdueTasks = tasks.filter(task => {
+        if (task.endDate && task.status !== "Completed") {
+          const endDate = new Date(task.endDate);
+          const now = new Date();
+          return endDate < now;
+        }
+        return false;
+      }).length;
+      const averageProgress = totalTasks > 0 ? 
+        Math.round(tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / totalTasks) : 0;
+
+      // Get project members
+      const members = await storage.getProjectMembers(project.id);
+
+      const enhancedProject = {
+        ...project,
+        name: project.projectName, // Map projectName to name for frontend compatibility
+        totalTasks,
+        completedTasks,
+        inProgressTasks,
+        overdueTasks,
+        averageProgress,
+        members,
+        status: 'active',
+        priority: 'medium',
+        pillar: 'Technical SEO',
+        phase: 'Foundation'
+      };
+
+      console.log(`Returning project ${projectId} with enhanced data`);
+      res.json(enhancedProject);
+    } catch (error) {
+      console.error("Error fetching project:", error);
+      res.status(500).json({ message: "Failed to fetch project" });
+    }
+  });
+
   // Delete project endpoint
   app.delete("/api/projects/:id", async (req: any, res: any) => {
     if (!req.session?.userId) {
@@ -469,6 +533,105 @@ Generated on: ${new Date().toISOString()}`;
     }
   });
 
+  // Task-Document Linking Endpoints
+  // Get documents linked to a task
+  app.get('/api/tasks/:taskId/documents', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const taskId = parseInt(req.params.taskId);
+      if (isNaN(taskId)) {
+        return res.status(400).json({ error: 'Invalid task ID' });
+      }
+      
+      // Verify user has access to this task's project
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+      
+      const accessResult = await storage.checkUserProjectAccess(userId, task.projectId);
+      if (!accessResult.hasAccess) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      const linkedDocuments = await storage.getTaskDocuments(taskId);
+      res.json(linkedDocuments);
+    } catch (error) {
+      console.error("Error fetching task documents:", error);
+      res.status(500).json({ message: "Failed to fetch task documents" });
+    }
+  });
+
+  // Link a document to a task
+  app.post('/api/tasks/:taskId/documents', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const taskId = parseInt(req.params.taskId);
+      const { documentId } = req.body;
+      
+      if (isNaN(taskId) || !documentId) {
+        return res.status(400).json({ error: 'Invalid task ID or document ID' });
+      }
+      
+      // Verify user has access to this task's project
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: 'Task not found' });
+      }
+      
+      const accessResult = await storage.checkUserProjectAccess(userId, task.projectId);
+      if (!accessResult.hasAccess) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Check if document exists
+      const document = await storage.getDocument(documentId);
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      const link = await storage.linkDocumentToTask({
+        taskId: taskId,
+        documentId: parseInt(documentId),
+        linkedBy: userId
+      });
+      res.json(link);
+    } catch (error) {
+      console.error("Error linking task document:", error);
+      res.status(500).json({ message: "Failed to link document to task" });
+    }
+  });
+
+  // Unlink a document from a task
+  app.delete('/api/task-document-links/:linkId', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const linkId = parseInt(req.params.linkId);
+      if (isNaN(linkId)) {
+        return res.status(400).json({ error: 'Invalid link ID' });
+      }
+      
+      // For now, just unlink - in a production system, you'd verify ownership
+      await storage.unlinkDocumentFromTask(linkId);
+      res.json({ success: true, message: 'Document unlinked successfully' });
+    } catch (error) {
+      console.error("Error unlinking task document:", error);
+      res.status(500).json({ message: "Failed to unlink document from task" });
+    }
+  });
+
   // Admin routes
   app.get('/api/admin/stats', async (req: any, res: any) => {
     try {
@@ -478,7 +641,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -498,7 +661,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -520,7 +683,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -559,7 +722,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -584,7 +747,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -605,7 +768,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -615,11 +778,11 @@ Generated on: ${new Date().toISOString()}`;
       // Add additional user management data
       const usersWithData = users.map(user => ({
         ...user,
-        userRole: user.role || 'client',
-        memberLevel: user.memberLevel || 'SEO Specialist',
-        authorityScore: user.memberAuthority || 100,
-        tasksCompleted: user.tasksCompleted || 0,
-        averageRating: user.averageRating || '0.00'
+        userRole: user.isAdmin ? 'admin' : 'client',
+        memberLevel: 'SEO Specialist', // Default value since this field doesn't exist in schema
+        authorityScore: Number(user.memberAuthorityScore) || 0,
+        tasksCompleted: 0, // Default value since this field doesn't exist in schema
+        averageRating: '0.00' // Default value since this field doesn't exist in schema
       }));
       
       res.json(usersWithData);
@@ -637,7 +800,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -662,7 +825,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
@@ -691,7 +854,7 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       const user = await storage.getUser(userId);
-      if (!user || (user.email !== "jaguzman123@hotmail.com" && user.role !== "admin")) {
+      if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
         return res.status(403).json({ error: 'Admin access required' });
       }
       

@@ -78,7 +78,7 @@ psql -U postgres -d seo_timeline -f database_schema.sql
 
 ### 5. Import Existing Data
 
-Export current data from Replit database:
+Export current data from your existing database:
 ```sql
 -- Export projects
 COPY (SELECT * FROM dms_projects) TO '/tmp/projects.csv' WITH CSV HEADER;

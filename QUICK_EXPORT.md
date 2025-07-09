@@ -114,12 +114,10 @@ seo-timeline/
 
 ## Manual File Copy Method
 
-1. Open each file in Replit
-2. Copy the contents
-3. Paste into new files in your local environment
-4. Maintain the same directory structure
-5. Run `chmod +x local-setup.sh`
-6. Execute `./local-setup.sh`
+1. Copy all project files to your local environment
+2. Maintain the same directory structure
+3. Run `chmod +x local-setup.sh`
+4. Execute `./local-setup.sh`
 
 ## Alternative: Git Clone Method
 

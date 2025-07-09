@@ -8,7 +8,7 @@ export interface ProjectWithStats {
   inProgressTasks: number;
   overdueTasks: number;
   averageProgress: number;
-  members: Array<{
+  members?: Array<{
     id: number;
     projectId: number;
     userId: string;

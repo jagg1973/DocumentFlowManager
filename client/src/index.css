@@ -261,17 +261,17 @@
     0 4px 16px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transition: all 0.2s ease;
-  color: rgba(51, 65, 85, 0.9); /* Ensure text is visible */
+  color: rgba(71, 85, 105, 0.9); /* Readable slate color */
 }
 
 .glass-button:hover {
-  background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1));
   border: 1px solid rgba(59, 130, 246, 0.4);
   transform: translateY(-1px);
   box-shadow: 
     0 6px 20px rgba(59, 130, 246, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  color: rgba(59, 130, 246, 0.9); /* Blue text on hover */
+  color: rgba(255, 255, 255, 0.9); /* White text on blue hover background */
 }
 
 /* Fix blue buttons becoming white on hover */
@@ -286,9 +286,9 @@
 /* Outline/variant buttons need special treatment */
 .glass-button[data-variant="outline"]:hover,
 .glass-button.variant-outline:hover {
-  background: linear-gradient(145deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
   border: 1px solid rgba(59, 130, 246, 0.5);
-  color: rgba(59, 130, 246, 1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Improved card hover effects - Smooth and stable */
@@ -587,34 +587,40 @@
   
   /* Enhanced Admin Button Styles */
   .admin-quick-action {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05));
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 14px;
-    color: rgba(51, 65, 85, 0.9);
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.08)) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 14px !important;
+    color: rgba(71, 85, 105, 0.9) !important; /* Slate-600 for good readability */
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
     box-shadow: 
       0 3px 12px rgba(0, 0, 0, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
   }
   
   .admin-quick-action:hover {
-    background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
-    border: 1px solid rgba(59, 130, 246, 0.35);
-    color: rgba(59, 130, 246, 1);
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.12)) !important;
+    border: 1px solid rgba(59, 130, 246, 0.4) !important;
+    color: rgba(255, 255, 255, 0.98) !important; /* Pure white text for maximum contrast */
     transform: translateY(-3px) scale(1.02);
     box-shadow: 
-      0 8px 25px rgba(59, 130, 246, 0.15),
-      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+      0 8px 25px rgba(59, 130, 246, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
   }
   
   .admin-quick-action:active {
     transform: translateY(-1px) scale(1.01);
     box-shadow: 
-      0 4px 15px rgba(59, 130, 246, 0.12),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      0 4px 15px rgba(59, 130, 246, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+  
+  /* Ensure icons in admin quick actions have proper contrast */
+  .admin-quick-action svg {
+    color: inherit !important;
+    transition: color 0.25s ease;
   }
 }
 

@@ -66,9 +66,19 @@ export default function CreateProjectModal({ trigger, onSuccess }: CreateProject
       console.log("Submitting project data:", data);
       return apiRequest("/api/projects", "POST", data);
     },
-    onSuccess: (data) => {
-      console.log("Project created successfully:", data);
+    onSuccess: (newProject) => {
+      console.log("Project created successfully:", newProject);
+      
+      // Update the cache with the new project
+      queryClient.setQueryData(["/api/projects"], (oldData: any[]) => {
+        if (!oldData) return [newProject];
+        return [...oldData, newProject];
+      });
+      
+      // Also invalidate and refetch to ensure consistency
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      queryClient.refetchQueries({ queryKey: ["/api/projects"] });
+      
       toast({
         title: "Project Created",
         description: "Your SEO project has been created successfully!",

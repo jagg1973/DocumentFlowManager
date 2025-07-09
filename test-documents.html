@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Management Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ccc; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; }
+        input[type="file"] { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Document Management System - API Test</h1>
+    
+    <div class="section">
+        <h2>1. Authentication</h2>
+        <button onclick="login()">Login as Admin</button>
+        <div id="loginResult" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. List Documents</h2>
+        <button onclick="listDocuments()">Get Documents</button>
+        <div id="documentsResult" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. Upload Document</h2>
+        <input type="file" id="fileInput" />
+        <input type="text" id="titleInput" placeholder="Document title" value="Test Document" />
+        <br>
+        <button onclick="uploadDocument()">Upload Document</button>
+        <div id="uploadResult" class="result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>4. Test Health Endpoint</h2>
+        <button onclick="testHealth()">Check Health</button>
+        <div id="healthResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5001';
+        
+        async function login() {
+            const result = document.getElementById('loginResult');
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                
+                const data = await response.text();
+                result.innerHTML = `Status: ${response.status}<br>Response: ${data}`;
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function listDocuments() {
+            const result = document.getElementById('documentsResult');
+            try {
+                const response = await fetch(`${API_BASE}/api/documents`, {
+                    credentials: 'include'
+                });
+                
+                const data = await response.text();
+                result.innerHTML = `Status: ${response.status}<br>Response: ${data}`;
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function uploadDocument() {
+            const result = document.getElementById('uploadResult');
+            const fileInput = document.getElementById('fileInput');
+            const titleInput = document.getElementById('titleInput');
+            
+            if (!fileInput.files[0]) {
+                result.innerHTML = 'Please select a file first';
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('title', titleInput.value);
+                
+                const response = await fetch(`${API_BASE}/api/documents/upload`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                
+                const data = await response.text();
+                result.innerHTML = `Status: ${response.status}<br>Response: ${data}`;
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+        
+        async function testHealth() {
+            const result = document.getElementById('healthResult');
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const data = await response.text();
+                result.innerHTML = `Status: ${response.status}<br>Response: ${data}`;
+            } catch (error) {
+                result.innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

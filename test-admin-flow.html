@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Flow Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .loading { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Authentication Flow Test</h1>
+        
+        <div id="status" class="status loading">Ready to test...</div>
+        
+        <div>
+            <button id="testBtn" class="btn-primary">Run Full Test</button>
+            <button id="resetBtn" class="btn-secondary">Reset</button>
+            <button id="openAdminBtn" class="btn-secondary">Open Admin Documents</button>
+        </div>
+        
+        <div id="results">
+            <h2>Test Results:</h2>
+            <div id="testResults"></div>
+        </div>
+    </div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('testResults');
+        
+        function updateStatus(message, type = 'loading') {
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+        
+        function addResult(test, success, message) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${success ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `<strong>${test}:</strong> ${success ? '✅' : '❌'} ${message}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+        
+        async function runFullTest() {
+            resultsDiv.innerHTML = '';
+            updateStatus('Running full authentication flow test...', 'loading');
+            
+            try {
+                // Test 1: Check if we're initially unauthenticated
+                updateStatus('Test 1: Checking initial authentication state...', 'loading');
+                let response = await fetch('/api/auth/me', { credentials: 'include' });
+                let user = null;
+                try {
+                    user = await response.json();
+                } catch (e) {
+                    // Expected if not authenticated
+                }
+                
+                const initiallyUnauth = !user || !user.id;
+                addResult('Initial State', initiallyUnauth, initiallyUnauth ? 'Not authenticated (expected)' : 'Already authenticated');
+                
+                // Test 2: Login
+                updateStatus('Test 2: Testing login...', 'loading');
+                response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: 'admin@documentflow.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const loginSuccess = response.ok;
+                addResult('Login', loginSuccess, loginSuccess ? 'Login successful' : `Login failed: ${response.status}`);
+                
+                if (!loginSuccess) {
+                    updateStatus('Login failed, stopping test.', 'error');
+                    return;
+                }
+                
+                const loginData = await response.json();
+                const isAdmin = loginData.is_admin === true;
+                addResult('Admin Status', isAdmin, isAdmin ? 'User has admin privileges' : 'User does not have admin privileges');
+                
+                // Test 3: Check authentication persistence
+                updateStatus('Test 3: Testing session persistence...', 'loading');
+                response = await fetch('/api/auth/me', { credentials: 'include' });
+                const authSuccess = response.ok;
+                addResult('Session Persistence', authSuccess, authSuccess ? 'Session maintained across requests' : 'Session not persisting');
+                
+                if (authSuccess) {
+                    const userData = await response.json();
+                    const sessionAdmin = userData.is_admin === true;
+                    addResult('Session Admin Status', sessionAdmin, sessionAdmin ? 'Admin status preserved in session' : 'Admin status lost in session');
+                }
+                
+                // Test 4: Test document access
+                updateStatus('Test 4: Testing document access...', 'loading');
+                response = await fetch('/api/documents', { credentials: 'include' });
+                const docsSuccess = response.ok;
+                addResult('Document Access', docsSuccess, docsSuccess ? 'Can access documents endpoint' : `Cannot access documents: ${response.status}`);
+                
+                if (docsSuccess) {
+                    const docsData = await response.json();
+                    const hasDocuments = docsData.data && docsData.data.length > 0;
+                    addResult('Document Data', hasDocuments, hasDocuments ? `Retrieved ${docsData.data.length} documents` : 'No documents found');
+                }
+                
+                updateStatus('Test completed! Check results above.', 'success');
+                
+            } catch (error) {
+                addResult('Test Error', false, error.message);
+                updateStatus('Test failed with error: ' + error.message, 'error');
+            }
+        }
+        
+        function resetTest() {
+            resultsDiv.innerHTML = '';
+            updateStatus('Ready to test...', 'loading');
+        }
+        
+        function openAdminPage() {
+            window.open('/admin/documents', '_blank');
+        }
+        
+        // Event listeners
+        document.getElementById('testBtn').addEventListener('click', runFullTest);
+        document.getElementById('resetBtn').addEventListener('click', resetTest);
+        document.getElementById('openAdminBtn').addEventListener('click', openAdminPage);
+    </script>
+</body>
+</html>

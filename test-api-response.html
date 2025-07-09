@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Response Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        .error { color: red; }
+        .success { color: green; }
+        button { padding: 10px 20px; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Document API Response Test</h1>
+    
+    <button onclick="testAuth()">Test Auth Status</button>
+    <button onclick="testDocuments()">Test Documents API</button>
+    <button onclick="clearLog()">Clear Log</button>
+    
+    <div id="log"></div>
+
+    <script>
+        function log(message, isError = false) {
+            const logDiv = document.getElementById('log');
+            const div = document.createElement('div');
+            div.className = isError ? 'error' : 'success';
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            logDiv.appendChild(div);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function testAuth() {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                log(`Auth Status: ${response.status}`, !response.ok);
+                log(`<pre>${JSON.stringify(data, null, 2)}</pre>`);
+            } catch (error) {
+                log(`Auth Error: ${error.message}`, true);
+            }
+        }
+
+        async function testDocuments() {
+            try {
+                const response = await fetch('/api/documents', {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                log(`Documents Status: ${response.status}`, !response.ok);
+                log(`Response Type: ${typeof data}`);
+                log(`Is Array: ${Array.isArray(data)}`);
+                if (data && typeof data === 'object') {
+                    log(`Keys: ${Object.keys(data).join(', ')}`);
+                    if (data.data) {
+                        log(`Data Type: ${typeof data.data}`);
+                        log(`Data Is Array: ${Array.isArray(data.data)}`);
+                        log(`Data Length: ${data.data ? data.data.length : 'N/A'}`);
+                    }
+                }
+                log(`<pre>${JSON.stringify(data, null, 2)}</pre>`);
+            } catch (error) {
+                log(`Documents Error: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>

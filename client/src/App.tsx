@@ -4,6 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/AuthPage";
+import UIShowcase from "@/pages/UIShowcase";
+import ButtonShowcase from "@/pages/ButtonShowcase";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute, AdminRoute } from "@/lib/protected-route";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -16,6 +18,7 @@ import UserManagement from "@/pages/UserManagement";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import Gamification from "@/pages/Gamification";
+import ProjectPage from "@/pages/ProjectPage";
 import "./App.css";
 
 const queryClient = new QueryClient({
@@ -32,6 +35,9 @@ function Router() {
     <AuthProvider>
       <Switch>
         <ProtectedRoute path="/" component={Dashboard} />
+        <ProtectedRoute path="/projects/:id" component={ProjectPage} />
+        <ProtectedRoute path="/ui-showcase" component={UIShowcase} />
+        <ProtectedRoute path="/button-showcase" component={ButtonShowcase} />
         <AdminRoute path="/admin" component={AdminDashboard} />
         <AdminRoute path="/admin/documents" component={AdminDocuments} />
         <AdminRoute path="/admin/users" component={UserManagement} />

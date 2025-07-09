@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Documents Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .document { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .loading { background-color: #d1ecf1; color: #0c5460; }
+        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-secondary { background-color: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Documents Test</h1>
+        
+        <div id="status" class="status loading">Testing API connection...</div>
+        
+        <div>
+            <button id="loginBtn" class="btn-primary">Login as Admin</button>
+            <button id="fetchDocsBtn" class="btn-secondary">Fetch Documents</button>
+            <button id="testDirectBtn" class="btn-secondary">Test Direct Page</button>
+        </div>
+        
+        <div id="results">
+            <h2>Documents:</h2>
+            <div id="documents"></div>
+        </div>
+    </div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const documentsDiv = document.getElementById('documents');
+        
+        function updateStatus(message, type = 'loading') {
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+        
+        function displayDocuments(docs) {
+            if (!docs || docs.length === 0) {
+                documentsDiv.innerHTML = '<p>No documents found</p>';
+                return;
+            }
+            
+            const html = docs.map(doc => `
+                <div class="document">
+                    <h3>${doc.title}</h3>
+                    <p><strong>Category:</strong> ${doc.category}</p>
+                    <p><strong>Uploader:</strong> ${doc.uploader?.firstName} ${doc.uploader?.lastName}</p>
+                    <p><strong>Size:</strong> ${(doc.fileSize / 1024).toFixed(2)} KB</p>
+                    <p><strong>Downloads:</strong> ${doc.downloadCount}</p>
+                    <p><strong>Created:</strong> ${new Date(doc.createdAt).toLocaleDateString()}</p>
+                </div>
+            `).join('');
+            
+            documentsDiv.innerHTML = html;
+        }
+        
+        // Login function
+        async function loginAsAdmin() {
+            updateStatus('Logging in...', 'loading');
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        email: 'admin@documentflow.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                if (response.ok) {
+                    updateStatus('Logged in successfully!', 'success');
+                } else {
+                    const error = await response.text();
+                    updateStatus(`Login failed: ${error}`, 'error');
+                }
+            } catch (error) {
+                updateStatus(`Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Fetch documents function
+        async function fetchDocuments() {
+            updateStatus('Fetching documents...', 'loading');
+            try {
+                const response = await fetch('/api/documents', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const result = await response.json();
+                    const docs = result.data || result;
+                    displayDocuments(docs);
+                    updateStatus(`Found ${docs.length} documents`, 'success');
+                } else {
+                    const error = await response.text();
+                    updateStatus(`Failed to fetch documents: ${error}`, 'error');
+                }
+            } catch (error) {
+                updateStatus(`Fetch error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Test direct page function
+        function testDirectPage() {
+            window.open('/admin/documents', '_blank');
+        }
+        
+        // Event listeners
+        document.getElementById('loginBtn').addEventListener('click', loginAsAdmin);
+        document.getElementById('fetchDocsBtn').addEventListener('click', fetchDocuments);
+        document.getElementById('testDirectBtn').addEventListener('click', testDirectPage);
+        
+        // Initial status
+        updateStatus('Ready to test. Click "Login as Admin" first.', 'success');
+    </script>
+</body>
+</html>
