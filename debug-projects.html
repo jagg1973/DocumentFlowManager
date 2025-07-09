@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Projects</title>
+</head>
+<body>
+    <h1>Debug Projects API</h1>
+    <button onclick="testLogin()">Test Login</button>
+    <button onclick="testProjects()">Test Projects</button>
+    <div id="output"></div>
+
+    <script>
+        async function testLogin() {
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'jaguzman123@hotmail.com',
+                        password: 'password'
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                document.getElementById('output').innerHTML = '<h3>Login Response:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('output').innerHTML = '<h3>Login Error:</h3><pre>' + error.message + '</pre>';
+            }
+        }
+
+        async function testProjects() {
+            try {
+                const response = await fetch('/api/projects', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                document.getElementById('output').innerHTML = '<h3>Projects Response:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('output').innerHTML = '<h3>Projects Error:</h3><pre>' + error.message + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html>

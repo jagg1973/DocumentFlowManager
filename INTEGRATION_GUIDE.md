@@ -10,7 +10,7 @@ This premium SEO Project Timeline Dashboard has been built as a production-ready
 - **Frontend**: React 18 with TypeScript, Tailwind CSS with liquid glass effects
 - **Backend**: Node.js with Express.js and TypeScript
 - **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Replit Auth (OpenID Connect) - easily replaceable with your auth system
+- **Authentication**: SAAS Authentication (Email/Password) - easily replaceable with your auth system
 - **UI Framework**: Shadcn/ui components with custom glassmorphism styling
 
 ### Database Schema
@@ -72,7 +72,6 @@ Integrate the dashboard as an iframe or embedded component within your existing 
    ```env
    DATABASE_URL=postgresql://user:password@host:port/database
    SESSION_SECRET=your-session-secret
-   REPLIT_DOMAINS=your-domain.com
    ```
 
 #### Step 2: Database Integration
@@ -273,7 +272,7 @@ foreach ($tasks as $task) {
 
 ### Option 3: Custom Authentication Integration
 
-Replace Replit Auth with your existing authentication system.
+Replace the current SAAS authentication with your existing authentication system.
 
 #### Step 1: Update Authentication Middleware
 

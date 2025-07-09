@@ -76,10 +76,10 @@ export default function ProjectCard({ project, onRefetch }: ProjectCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+            <CardTitle className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors heading-text text-crisp">
               {project.projectName}
             </CardTitle>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 mt-1 text-crisp">
               Created {new Date(project.createdAt).toLocaleDateString()}
             </p>
           </div>
@@ -181,17 +181,17 @@ export default function ProjectCard({ project, onRefetch }: ProjectCardProps) {
         {/* Actions */}
         <div className="flex space-x-2 pt-2">
           <Link href={`/projects/${project.id}`} className="flex-1">
-            <Button className="w-full glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700" size="sm">
+            <Button className="w-full glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700 btn-text text-crisp" size="sm">
               View Timeline
             </Button>
           </Link>
-          <Button variant="outline" size="sm" className="flex-1 glass-button border-white/30 hover:border-white/50 hover:bg-white/10">
+          <Button variant="outline" size="sm" className="flex-1 glass-button border-white/30 hover:border-white/50 hover:bg-white/10 btn-text text-crisp">
             Manage Members
           </Button>
           <Button 
             variant="outline" 
             size="sm" 
-            className="glass-button border-red-400/30 hover:border-red-400/50 hover:bg-red-50/10 text-red-600 hover:text-red-700"
+            className="glass-button border-red-400/30 hover:border-red-400/50 hover:bg-red-50/10 text-red-600 hover:text-red-700 btn-text text-crisp"
             onClick={() => setShowDeleteDialog(true)}
           >
             <Trash2 className="w-4 h-4" />

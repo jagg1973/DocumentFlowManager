@@ -73,10 +73,80 @@
 
   html, body {
     @apply font-sans antialiased bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
     overflow-x: hidden;
     width: 100%;
     max-width: 100vw;
+    
+    /* Enhanced font rendering for crisp text */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1, 'pnum' 1, 'tnum' 0, 'onum' 1, 'lnum' 0, 'dlig' 0;
+    font-variant-ligatures: common-ligatures contextual;
+    font-kerning: normal;
+    
+    /* Prevent text from appearing blurry on high-DPI displays */
+    backface-visibility: hidden;
+    perspective: 1000;
+    transform: translate3d(0, 0, 0);
+    transform-style: preserve-3d;
+  }
+  
+  /* Ensure crisp text rendering across all elements */
+  h1, h2, h3, h4, h5, h6, p, span, div, button, input, textarea, label {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  
+  /* Specific font weights for better hierarchy */
+  h1 { font-weight: 800; letter-spacing: -0.025em; }
+  h2 { font-weight: 700; letter-spacing: -0.015em; }
+  h3 { font-weight: 600; letter-spacing: -0.01em; }
+  h4 { font-weight: 600; }
+  h5 { font-weight: 500; }
+  h6 { font-weight: 500; }
+  
+  /* Button text optimization */
+  button {
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  
+  /* Input text optimization */
+  input, textarea {
+    font-weight: 400;
+    letter-spacing: 0.005em;
+  }
+  
+  /* Global font clarity improvements */
+  .card-title, [data-card-title] {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+  }
+  
+  /* Enhanced button hover states */
+  button:hover {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Badge and pill text improvements */
+  .badge, [role="status"], [role="presentation"] {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-weight: 500;
+    letter-spacing: 0.025em;
+  }
+  
+  /* Dialog and modal text */
+  [role="dialog"] *, [role="alertdialog"] * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
@@ -183,22 +253,25 @@
 }
 
 .glass-button {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.1));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.08));
   backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transition: all 0.2s ease;
+  color: rgba(71, 85, 105, 0.9); /* Readable slate color */
 }
 
 .glass-button:hover {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.2));
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.4);
   transform: translateY(-1px);
   box-shadow: 
-    0 6px 20px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    0 6px 20px rgba(59, 130, 246, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.9); /* White text on blue hover background */
 }
 
 /* Fix blue buttons becoming white on hover */
@@ -207,6 +280,15 @@
 .glass-button.bg-gradient-to-r:hover {
   background: linear-gradient(145deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9)) !important;
   color: white !important;
+  border: 1px solid rgba(59, 130, 246, 0.7) !important;
+}
+
+/* Outline/variant buttons need special treatment */
+.glass-button[data-variant="outline"]:hover,
+.glass-button.variant-outline:hover {
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08));
+  border: 1px solid rgba(59, 130, 246, 0.5);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Improved card hover effects - Smooth and stable */
@@ -346,21 +428,24 @@
   }
   
   .glass-button {
-    background: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow: 
       0 4px 12px rgba(0, 0, 0, 0.1),
       inset 0 1px 0 rgba(255, 255, 255, 0.3);
     transition: all 0.3s ease;
+    color: rgba(51, 65, 85, 0.85);
   }
   
   .glass-button:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.06));
+    border: 1px solid rgba(59, 130, 246, 0.3);
     box-shadow: 
-      0 6px 20px rgba(0, 0, 0, 0.15),
+      0 6px 20px rgba(59, 130, 246, 0.12),
       inset 0 1px 0 rgba(255, 255, 255, 0.4);
     transform: translateY(-2px);
+    color: rgba(59, 130, 246, 0.9);
   }
   
   .gantt-task {
@@ -498,5 +583,92 @@
       inset 0 2px 4px rgba(0, 0, 0, 0.1),
       0 0 0 2px rgba(59, 130, 246, 0.3),
       0 2px 8px rgba(59, 130, 246, 0.2);
+  }
+  
+  /* Enhanced Admin Button Styles */
+  .admin-quick-action {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.08)) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 14px !important;
+    color: rgba(71, 85, 105, 0.9) !important; /* Slate-600 for good readability */
+    font-weight: 500 !important;
+    letter-spacing: 0.01em !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 
+      0 3px 12px rgba(0, 0, 0, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  }
+  
+  .admin-quick-action:hover {
+    background: linear-gradient(145deg, rgba(59, 130, 246, 0.25), rgba(59, 130, 246, 0.12)) !important;
+    border: 1px solid rgba(59, 130, 246, 0.4) !important;
+    color: rgba(255, 255, 255, 0.98) !important; /* Pure white text for maximum contrast */
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 
+      0 8px 25px rgba(59, 130, 246, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+  
+  .admin-quick-action:active {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: 
+      0 4px 15px rgba(59, 130, 246, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  }
+  
+  /* Ensure icons in admin quick actions have proper contrast */
+  .admin-quick-action svg {
+    color: inherit !important;
+    transition: color 0.25s ease;
+  }
+}
+
+@layer utilities {
+  /* Text clarity utilities */
+  .text-crisp {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'kern' 1;
+  }
+  
+  .text-sharp {
+    -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: auto;
+    text-rendering: geometricPrecision;
+  }
+  
+  .text-premium {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+    font-kerning: normal;
+    font-variant-ligatures: common-ligatures contextual;
+  }
+  
+  /* Prevent text blur on transforms */
+  .no-blur {
+    backface-visibility: hidden;
+    perspective: 1000;
+    transform: translate3d(0, 0, 0);
+  }
+  
+  /* Enhanced button text */
+  .btn-text {
+    font-weight: 500;
+    letter-spacing: 0.025em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Enhanced heading text */
+  .heading-text {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 }

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 Admin Login Test</h1>
+        <p>Testing admin login functionality for Document Flow Manager</p>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" value="jaguzman123@hotmail.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="admin123">
+        </div>
+        
+        <button onclick="testLogin()">🚀 Test Login</button>
+        <button onclick="testAdminAccess()">👨‍💼 Test Admin Access</button>
+        <button onclick="logout()">🚪 Logout</button>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function testLogin() {
+            const result = document.getElementById('result');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                result.style.display = 'block';
+                result.className = 'result';
+                result.innerHTML = '⏳ Testing login...';
+                
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.className = 'result success';
+                    result.innerHTML = `
+                        <h3>✅ Login Successful!</h3>
+                        <p><strong>User:</strong> ${data.firstName} ${data.lastName}</p>
+                        <p><strong>Email:</strong> ${data.email}</p>
+                        <p><strong>Admin:</strong> ${data.isAdmin ? 'Yes' : 'No'}</p>
+                        <p><strong>User ID:</strong> ${data.id}</p>
+                    `;
+                } else {
+                    result.className = 'result error';
+                    result.innerHTML = `
+                        <h3>❌ Login Failed</h3>
+                        <p>${data.error || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `
+                    <h3>❌ Network Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+        
+        async function testAdminAccess() {
+            const result = document.getElementById('result');
+            
+            try {
+                result.style.display = 'block';
+                result.className = 'result';
+                result.innerHTML = '⏳ Testing admin access...';
+                
+                const response = await fetch('/api/admin/stats', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.className = 'result success';
+                    result.innerHTML = `
+                        <h3>✅ Admin Access Granted!</h3>
+                        <p><strong>Total Users:</strong> ${data.totalUsers || 'N/A'}</p>
+                        <p><strong>Total Projects:</strong> ${data.totalProjects || 'N/A'}</p>
+                        <p><strong>Total Documents:</strong> ${data.totalDocuments || 'N/A'}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    const errorData = await response.json();
+                    result.className = 'result error';
+                    result.innerHTML = `
+                        <h3>❌ Admin Access Denied</h3>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Error:</strong> ${errorData.error || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `
+                    <h3>❌ Network Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+        
+        async function logout() {
+            const result = document.getElementById('result');
+            
+            try {
+                result.style.display = 'block';
+                result.className = 'result';
+                result.innerHTML = '⏳ Logging out...';
+                
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    result.className = 'result success';
+                    result.innerHTML = '✅ Logout successful!';
+                } else {
+                    result.className = 'result error';
+                    result.innerHTML = '❌ Logout failed';
+                }
+            } catch (error) {
+                result.className = 'result error';
+                result.innerHTML = `❌ Logout error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

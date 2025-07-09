@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Test</title>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <h1>Socket.IO Real-time Event Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="events"></div>
+    
+    <script>
+        const socket = io();
+        const statusDiv = document.getElementById('status');
+        const eventsDiv = document.getElementById('events');
+        
+        function addEvent(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            eventsDiv.innerHTML += `<p>[${timestamp}] ${message}</p>`;
+        }
+        
+        socket.on('connect', () => {
+            statusDiv.innerHTML = '✅ Connected: ' + socket.id;
+            addEvent('Socket connected with ID: ' + socket.id);
+        });
+        
+        socket.on('disconnect', () => {
+            statusDiv.innerHTML = '❌ Disconnected';
+            addEvent('Socket disconnected');
+        });
+        
+        socket.on('project:created', (project) => {
+            addEvent('🎉 Project created: ' + JSON.stringify(project));
+        });
+        
+        socket.on('project:deleted', (project) => {
+            addEvent('🗑️ Project deleted: ' + JSON.stringify(project));
+        });
+        
+        // Test project creation
+        function createTestProject() {
+            fetch('/api/projects', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    projectName: 'Socket Test Project ' + Math.random().toString(36).substr(2, 5)
+                })
+            })
+            .then(response => response.json())
+            .then(data => addEvent('API Response: ' + JSON.stringify(data)))
+            .catch(error => addEvent('API Error: ' + error));
+        }
+        
+        // Add button to test
+        setTimeout(() => {
+            document.body.innerHTML += '<button onclick="createTestProject()">Create Test Project</button>';
+        }, 1000);
+    </script>
+</body>
+</html>

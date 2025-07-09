@@ -1,5 +1,5 @@
--- Export script for migrating data to local environment
--- Run this in Replit to export your current data
+-- Export script for migrating data from existing database
+-- Run this in your current database to export data
 
 -- Export Projects
 \copy (SELECT id, project_name, owner_id, created_at, status, priority, pillar, phase, description, start_date, end_date FROM dms_projects ORDER BY created_at DESC) TO 'projects_export.csv' WITH CSV HEADER;

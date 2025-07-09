@@ -44,6 +44,7 @@ interface ProjectGridProps {
   viewMode?: 'grid' | 'list';
   onViewModeChange?: (mode: 'grid' | 'list') => void;
   onProjectSelect?: (project: ProjectWithStats) => void;
+  onRefetch?: () => void;
 }
 
 const ProjectStatusBadge = ({ status }: { status: string }) => {
@@ -308,7 +309,8 @@ export default function ProjectGrid({
   isLoading = false, 
   viewMode = 'grid',
   onViewModeChange,
-  onProjectSelect 
+  onProjectSelect,
+  onRefetch
 }: ProjectGridProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
