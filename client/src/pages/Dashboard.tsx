@@ -18,6 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import Footer from "@/components/Footer";
+import ProjectCard from "@/components/ProjectCard";
 
 function LogoutButton() {
   const { logoutMutation } = useAuth();
@@ -41,26 +42,42 @@ const createProjectSchema = z.object({
 });
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log("Dashboard - User state:", user);
+    console.log("Dashboard - User exists:", !!user);
+    console.log("Dashboard - Auth loading:", authLoading);
+  }, [user, authLoading]);
 
   const { data: projects = [], isLoading: projectsLoading, error, refetch: refetchProjects } = useQuery<ProjectWithStats[]>({
     queryKey: ["/api/projects"],
-    enabled: !!user,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      console.log("Projects query executing...");
+      return await apiRequest("/api/projects", "GET");
+    },
+    enabled: !!user && !authLoading, // Wait for auth to complete and user to exist
     retry: (failureCount, error) => {
       console.log("Projects query failed:", error);
       return failureCount < 2;
     },
   });
 
+  // Debug logging for projects
+  useEffect(() => {
+    console.log("Dashboard - Projects data:", projects);
+    console.log("Dashboard - Projects loading:", projectsLoading);
+    console.log("Dashboard - Projects error:", error);
+    console.log("Dashboard - Query enabled:", !!user && !authLoading);
+  }, [projects, projectsLoading, error, user, authLoading]);
+
   // Calculate stats
   const totalTasks = projects?.reduce((sum, project) => sum + (project.totalTasks || 0), 0) || 0;
   const completedTasks = projects?.reduce((sum, project) => sum + (project.completedTasks || 0), 0) || 0;
   const activeTasks = totalTasks - completedTasks;
-  const teamMembers = projects?.reduce((sum, project) => sum + (project.memberCount || 0), 0) || 0;
+  const teamMembers = 0; // Temporarily disabled
 
   const form = useForm<z.infer<typeof createProjectSchema>>({
     resolver: zodResolver(createProjectSchema),
@@ -75,43 +92,29 @@ export default function Dashboard() {
     mutationFn: async (data: z.infer<typeof createProjectSchema>) => {
       return apiRequest("/api/projects", "POST", data);
     },
+    onError: (err) => {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to create project",
+        variant: "destructive",
+      });
+    },
     onSuccess: async (newProject) => {
       console.log("Project created successfully:", newProject);
-      
-      // Force refresh of projects list
-      queryClient.setQueryData(["/api/projects"], (oldData: ProjectWithStats[] | undefined) => {
-        if (!oldData) return [newProject];
-        return [...oldData, newProject];
-      });
-      
-      // Also invalidate to get fresh data from server
-      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
       
       toast({
         title: "Success",
         description: `Project "${newProject.projectName}" created successfully`,
       });
       
+      // Refetch the current query to get updated data immediately
+      refetchProjects();
+      
+      // Also invalidate to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      
       setCreateProjectOpen(false);
       form.reset();
-    },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create project",
-        variant: "destructive",
-      });
     },
   });
 
@@ -145,7 +148,7 @@ export default function Dashboard() {
                   Documents
                 </Button>
               </Link>
-              {user?.role === 'admin' && (
+              {user?.isAdmin && (
                 <Link href="/admin">
                   <Button variant="outline" className="glass-button">
                     <Shield className="w-4 h-4 mr-2" />
@@ -248,7 +251,7 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          {(!user?.userRole || user?.userRole === 'admin' || user?.userRole === 'manager') && (
+          {user?.isAdmin && (
             <Link href="/admin">
               <Card className="glass-card liquid-border group hover:shadow-xl transition-all duration-300 cursor-pointer">
                 <CardContent className="p-6">
@@ -351,7 +354,18 @@ export default function Dashboard() {
         {/* Projects Section */}
         <Card className="glass-card mb-6">
           <CardHeader>
-            <CardTitle className="specular-highlight">SEO Timeline Projects</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="specular-highlight">SEO Timeline Projects</CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetchProjects()}
+                disabled={projectsLoading}
+                className="glass-button"
+              >
+                {projectsLoading ? "Refreshing..." : "Refresh"}
+              </Button>
+            </div>
           </CardHeader>
         </Card>
 
@@ -375,7 +389,7 @@ export default function Dashboard() {
         ) : projects && projects.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <ProjectCard key={project.id} project={project} onRefetch={refetchProjects} />
             ))}
           </div>
         ) : (

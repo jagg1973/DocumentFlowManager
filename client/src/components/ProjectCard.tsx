@@ -2,18 +2,74 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, CheckCircle, AlertCircle } from "lucide-react";
+import { Calendar, Users, CheckCircle, AlertCircle, Trash2, MoreVertical } from "lucide-react";
 import { ProjectWithStats } from "@/lib/types";
 import { Link } from "wouter";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ProjectCardProps {
   project: ProjectWithStats;
+  onRefetch?: () => void;
 }
 
-export default function ProjectCard({ project }: ProjectCardProps) {
+export default function ProjectCard({ project, onRefetch }: ProjectCardProps) {
+  const { toast } = useToast();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
   const progressPercent = project.averageProgress;
   const circumference = 2 * Math.PI * 14;
   const strokeDashoffset = circumference - (circumference * progressPercent / 100);
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest(`/api/projects/${project.id}`, "DELETE");
+    },
+    onError: (err) => {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to delete project",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: `Project "${project.projectName}" deleted successfully`,
+      });
+      
+      // Refetch the projects list to get updated data immediately
+      if (onRefetch) {
+        onRefetch();
+      }
+      
+      // Also invalidate to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    },
+  });
+
+  const handleDeleteProject = () => {
+    deleteProjectMutation.mutate();
+    setShowDeleteDialog(false);
+  };
 
   return (
     <Card className="glass-card hover:shadow-2xl transition-all duration-300 specular-highlight group">
@@ -21,7 +77,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <CardTitle className="text-lg font-semibold text-gray-900 truncate group-hover:text-blue-700 transition-colors">
-              {project.name || project.projectName}
+              {project.projectName}
             </CardTitle>
             <p className="text-sm text-gray-500 mt-1">
               Created {new Date(project.createdAt).toLocaleDateString()}
@@ -95,15 +151,19 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Team:</span>
             <div className="flex -space-x-2">
-              {project.members.slice(0, 4).map((member, index) => (
+              {project.members?.slice(0, 4).map((member, index) => (
                 <Avatar key={member.id} className="w-6 h-6 border-2 border-white">
                   <AvatarImage src={member.user.profileImageUrl || undefined} />
                   <AvatarFallback className="text-xs">
                     {member.user.firstName?.[0]}{member.user.lastName?.[0]}
                   </AvatarFallback>
                 </Avatar>
-              ))}
-              {project.members.length > 4 && (
+              )) || (
+                <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                  <span className="text-xs text-gray-600">1</span>
+                </div>
+              )}
+              {project.members && project.members.length > 4 && (
                 <div className="w-6 h-6 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-xs text-gray-600">
                   +{project.members.length - 4}
                 </div>
@@ -120,7 +180,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
 
         {/* Actions */}
         <div className="flex space-x-2 pt-2">
-          <Link href={`/project/${project.id}`} className="flex-1">
+          <Link href={`/projects/${project.id}`} className="flex-1">
             <Button className="w-full glass-button bg-gradient-to-r from-blue-500 to-indigo-600 border-blue-400/30 text-white hover:from-blue-600 hover:to-indigo-700" size="sm">
               View Timeline
             </Button>
@@ -128,8 +188,38 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           <Button variant="outline" size="sm" className="flex-1 glass-button border-white/30 hover:border-white/50 hover:bg-white/10">
             Manage Members
           </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="glass-button border-red-400/30 hover:border-red-400/50 hover:bg-red-50/10 text-red-600 hover:text-red-700"
+            onClick={() => setShowDeleteDialog(true)}
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
       </CardContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{project.projectName}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteProjectMutation.isPending}
+            >
+              {deleteProjectMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
