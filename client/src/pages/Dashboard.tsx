@@ -27,7 +27,7 @@ function LogoutButton() {
     <Button
       variant="outline"
       size="sm"
-      className="glass-button"
+      className="glass-button btn-text text-crisp"
       onClick={() => logoutMutation.mutate()}
       disabled={logoutMutation.isPending}
     >
@@ -137,20 +137,20 @@ export default function Dashboard() {
                 <BarChart3 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold specular-highlight">SEO Timeline DMS</h1>
-                <p className="text-sm text-gray-600">Project Management & Document System</p>
+                <h1 className="text-xl font-bold specular-highlight heading-text text-crisp">SEO Timeline DMS</h1>
+                <p className="text-sm text-gray-600 text-crisp">Project Management & Document System</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/documents">
-                <Button variant="outline" className="glass-button">
+                <Button variant="outline" className="glass-button btn-text text-crisp">
                   <FileText className="w-4 h-4 mr-2" />
                   Documents
                 </Button>
               </Link>
               {user?.isAdmin && (
                 <Link href="/admin">
-                  <Button variant="outline" className="glass-button">
+                  <Button variant="outline" className="glass-button btn-text text-crisp">
                     <Shield className="w-4 h-4 mr-2" />
                     Admin
                   </Button>
@@ -166,8 +166,8 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold specular-highlight mb-2">SEO Project Timeline</h1>
-            <p className="text-gray-600">Welcome back, {user?.firstName}! Manage your SEO projects with integrated document management.</p>
+            <h1 className="text-3xl font-bold specular-highlight mb-2 heading-text text-crisp">SEO Project Timeline</h1>
+            <p className="text-gray-600 text-crisp">Welcome back, {user?.firstName}! Manage your SEO projects with integrated document management.</p>
           </div>
           <div className="flex space-x-3">
             <Dialog open={createProjectOpen} onOpenChange={setCreateProjectOpen}>
