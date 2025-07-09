@@ -48,7 +48,7 @@ export interface IStorage {
   getOrganizationByDomain(domain: string): Promise<Organization | undefined>;
   updateOrganization(id: number, organization: Partial<InsertOrganization>): Promise<Organization | undefined>;
   
-  // User operations (mandatory for Replit Auth)
+  // User operations
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   
@@ -265,7 +265,12 @@ export class DatabaseStorage implements IStorage {
 
   // Project operations
   async createProject(project: InsertProject): Promise<Project> {
-    const [newProject] = await db.insert(projects).values(project).returning();
+    // Insert the project using $returningId for MySQL compatibility
+    const [result] = await db.insert(projects).values(project).$returningId();
+    const projectId = result.id;
+    
+    // Get the created project
+    const [newProject] = await db.select().from(projects).where(eq(projects.id, projectId));
     
     // Add owner as project member with edit permission
     await db.insert(projectMembers).values({
@@ -334,10 +339,14 @@ export class DatabaseStorage implements IStorage {
 
   // Task operations
   async createTask(task: InsertTask): Promise<Task> {
-    const [newTask] = await db.insert(tasks).values({
+    const [result] = await db.insert(tasks).values({
       ...task,
       updatedAt: new Date(),
-    }).returning();
+    }).$returningId();
+    const taskId = result.id;
+    
+    // Get the created task
+    const [newTask] = await db.select().from(tasks).where(eq(tasks.id, taskId));
     return newTask;
   }
 
@@ -638,10 +647,14 @@ export class DatabaseStorage implements IStorage {
 
   // DMS Document Management Implementation
   async createDocument(document: InsertDmsDocument): Promise<DmsDocument> {
-    const [newDocument] = await db
+    const [result] = await db
       .insert(dmsDocuments)
       .values(document)
-      .returning();
+      .$returningId();
+    const documentId = result.id;
+    
+    // Get the created document
+    const [newDocument] = await db.select().from(dmsDocuments).where(eq(dmsDocuments.id, documentId));
     return newDocument;
   }
 

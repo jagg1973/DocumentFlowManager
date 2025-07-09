@@ -2,7 +2,6 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import { setupAuth } from "./auth";
-import { setupAuth as setupReplitAuth } from "./replitAuth";
 import { storage } from "./storage";
 import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
 import { db } from "./db";
@@ -24,19 +23,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
   });
 
-  // Auth middleware - support both SAAS and Replit Auth
-  if (process.env.NODE_ENV === 'development') {
-    // Use SAAS auth in development
-    setupAuth(app);
-  } else {
-    // Use Replit Auth in production
-    try {
-      await setupReplitAuth(app);
-    } catch (error) {
-      console.warn('Replit Auth setup failed, falling back to SAAS auth:', error);
-      setupAuth(app);
-    }
-  }
+  // Auth middleware
+  console.log('Setting up SAAS authentication...');
+  setupAuth(app);
 
   // Projects endpoints
   app.get("/api/projects", async (req: any, res: any) => {
@@ -53,20 +42,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         projects.map(async (project) => {
           const tasks = await storage.getTasksForProject(project.id);
           const totalTasks = tasks.length;
-          const completedTasks = tasks.filter(task => task.status === "completed").length;
+          const completedTasks = tasks.filter(task => task.status === "Completed").length;
+          const inProgressTasks = tasks.filter(task => task.status === "In Progress").length;
+          const overdueTasks = tasks.filter(task => {
+            if (task.endDate && task.status !== "Completed") {
+              const endDate = new Date(task.endDate);
+              const now = new Date();
+              return endDate < now;
+            }
+            return false;
+          }).length;
           const averageProgress = totalTasks > 0 ? 
             Math.round(tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / totalTasks) : 0;
+
+          // Get project members
+          const members = await storage.getProjectMembers(project.id);
 
           return {
             ...project,
             name: project.projectName, // Map projectName to name for frontend compatibility
             totalTasks,
             completedTasks,
+            inProgressTasks,
+            overdueTasks,
             averageProgress,
-            status: project.status || 'active',
-            priority: project.priority || 'medium',
-            pillar: project.pillar || 'Technical SEO',
-            phase: project.phase || 'Foundation'
+            members,
+            status: 'active',
+            priority: 'medium',
+            pillar: 'Technical SEO',
+            phase: 'Foundation'
           };
         })
       );
@@ -94,10 +98,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = await storage.createProject(projectData);
       console.log("Created project:", project);
       
+      // Emit real-time event to all connected clients
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('project:created', project);
+        console.log('Emitted project:created event');
+      }
+      
       res.status(201).json(project);
     } catch (error) {
       console.error("Error creating project:", error);
       res.status(500).json({ message: "Failed to create project" });
+    }
+  });
+
+  // Delete project endpoint
+  app.delete("/api/projects/:id", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const projectId = req.params.id;
+      const userId = req.session.userId;
+      
+      console.log("Deleting project:", projectId, "for user:", userId);
+      
+      // Check if project exists and user owns it
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      if (project.ownerId !== userId) {
+        return res.status(403).json({ error: "Not authorized to delete this project" });
+      }
+      
+      // Delete the project
+      await storage.deleteProject(projectId);
+      console.log("Deleted project:", projectId);
+      
+      // Emit real-time event to all connected clients
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('project:deleted', { id: projectId });
+        console.log('Emitted project:deleted event');
+      }
+      
+      res.json({ success: true, message: "Project deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({ message: "Failed to delete project" });
     }
   });
 
@@ -127,23 +177,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Document view endpoint
   app.get('/api/documents/:id/view', async (req: any, res: any) => {
     try {
+      console.log('🔍 Document view request received:', req.params.id);
       const userId = req.session?.userId;
+      console.log('👤 User ID from session:', userId);
+      
       if (!userId) {
+        console.log('❌ No user authentication found');
         return res.status(401).json({ error: 'Not authenticated' });
       }
       
       const documentId = parseInt(req.params.id);
+      console.log('📄 Fetching document ID:', documentId);
       const document = await storage.getDocument(documentId);
+      console.log('📄 Document found:', document ? `${document.title} (${document.originalFilename})` : 'null');
       
       if (!document) {
+        console.log('❌ Document not found in database');
         return res.status(404).json({ error: 'Document not found' });
       }
       
       // Check if user has access to this document
+      console.log('🔐 Checking document access for user:', userId);
       const hasAccess = await storage.checkDocumentAccess(userId, documentId);
+      console.log('🔐 Access check result:', hasAccess);
+      console.log('📄 Document isPublic:', document.isPublic);
+      
       if (!hasAccess.hasAccess && !document.isPublic) {
+        console.log('❌ Access denied - user has no access and document is not public');
         return res.status(403).json({ error: 'Access denied' });
       }
+      
+      console.log('✅ Access granted, generating HTML preview');
       
       // Create an HTML preview for the document
       const htmlContent = `
@@ -288,6 +352,123 @@ Generated on: ${new Date().toISOString()}`;
     }
   });
 
+  // Regular user document upload
+  app.post('/api/documents/upload', upload.single('file'), async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      // Debug log to see what data we're receiving
+      console.log("Upload request body:", req.body);
+      console.log("Upload file:", req.file);
+      
+      // Create document entry with the actual form data
+      const document = await storage.createDocument({
+        title: req.body.title || "Uploaded Document",
+        description: req.body.description || "",
+        originalFilename: req.file?.originalname || "demo-file.pdf",
+        diskFilename: `${Date.now()}-${req.file?.originalname || 'demo-file.pdf'}`,
+        filepath: `/uploads/${Date.now()}-${req.file?.originalname || 'demo-file.pdf'}`,
+        fileExtension: req.file?.originalname?.split('.').pop() || "pdf",
+        mimeType: req.file?.mimetype || "application/pdf",
+        fileSize: req.file?.size || 1024 * 1024, // 1MB demo size
+        category: req.body.category || "Templates",
+        subcategory: req.body.subcategory || null,
+        tags: req.body.tags || null,
+        isPublic: req.body.isPublic === "true",
+        uploadedBy: userId
+      });
+      
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ message: "Failed to upload document" });
+    }
+  });
+
+  // Document update endpoint
+  app.put('/api/documents/:id', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user has permission to edit this document
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.email === "jaguzman123@hotmail.com" || user?.isAdmin === true;
+      const isOwner = document.uploadedBy === userId;
+      
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ error: 'Permission denied. Only document owner or admin can edit.' });
+      }
+      
+      // Update the document with provided fields
+      const updateData: Partial<typeof req.body> = {};
+      const allowedFields = ['title', 'description', 'category', 'subcategory', 'tags', 'isPublic'];
+      
+      allowedFields.forEach(field => {
+        if (req.body[field] !== undefined) {
+          updateData[field] = req.body[field];
+        }
+      });
+      
+      const updatedDocument = await storage.updateDocument(documentId, updateData);
+      
+      if (!updatedDocument) {
+        return res.status(500).json({ error: 'Failed to update document' });
+      }
+      
+      res.json(updatedDocument);
+    } catch (error) {
+      console.error("Error updating document:", error);
+      res.status(500).json({ message: "Failed to update document" });
+    }
+  });
+
+  // Document delete endpoint
+  app.delete('/api/documents/:id', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user has permission to delete this document
+      const user = await storage.getUser(userId);
+      const isAdmin = user?.email === "jaguzman123@hotmail.com" || user?.isAdmin === true;
+      const isOwner = document.uploadedBy === userId;
+      
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ error: 'Permission denied. Only document owner or admin can delete.' });
+      }
+      
+      // Delete the document (this will cascade to related tables)
+      await storage.deleteDocument(documentId);
+      
+      res.json({ success: true, message: 'Document deleted successfully' });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
   // Admin routes
   app.get('/api/admin/stats', async (req: any, res: any) => {
     try {
@@ -357,9 +538,10 @@ Generated on: ${new Date().toISOString()}`;
         mimeType: "application/pdf",
         fileSize: 1024 * 1024, // 1MB demo size
         category: req.body.category || "Templates",
+        subcategory: req.body.subcategory || null,
+        tags: req.body.tags || null,
         isPublic: req.body.isPublic === "true",
-        uploadedBy: userId,
-        tags: []
+        uploadedBy: userId
       });
       
       res.status(201).json(document);

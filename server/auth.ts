@@ -109,9 +109,14 @@ export function setupAuth(app: Express) {
       // Set session
       req.session.userId = user.id;
       
-      // Return user (without password)
-      const { password: _, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      // Return simple success response to test
+      res.json({ 
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isAdmin: user.isAdmin
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });

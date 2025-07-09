@@ -1,31 +1,31 @@
 import {
-  pgTable,
+  mysqlTable,
   text,
   varchar,
   timestamp,
-  jsonb,
+  json,
   index,
-  serial,
-  integer,
+  int,
   decimal,
   boolean,
-  pgEnum,
+  mysqlEnum,
   date,
-} from "drizzle-orm/pg-core";
+  primaryKey,
+} from "drizzle-orm/mysql-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Define enums first
-export const pillarEnum = pgEnum("pillar", ["Technical", "On-Page & Content", "Off-Page", "Analytics"]);
-export const phaseEnum = pgEnum("phase", ["1: Foundation", "2: Growth", "3: Authority"]);
-export const permissionEnum = pgEnum("permission_level", ["edit", "view"]);
-export const statusEnum = pgEnum("status", ["Not Started", "In Progress", "Completed", "On Hold", "Overdue"]);
-export const memberLevelEnum = pgEnum("member_level", ["C-Level", "Manager", "SEO Lead", "SEO Specialist", "Junior", "Intern"]);
-export const reviewTypeEnum = pgEnum("review_type", ["thumbs_up", "thumbs_down", "star_rating", "detailed_review"]);
-export const itemStatusEnum = pgEnum("item_status", ["pending", "in_progress", "completed", "rejected"]);
-export const userRoleEnum = pgEnum("user_role", ["admin", "manager", "client"]);
-export const documentCategoryEnum = pgEnum("document_category", [
+export const pillarEnum = mysqlEnum("pillar", ["Technical", "On-Page & Content", "Off-Page", "Analytics"]);
+export const phaseEnum = mysqlEnum("phase", ["1: Foundation", "2: Growth", "3: Authority"]);
+export const permissionEnum = mysqlEnum("permission_level", ["edit", "view"]);
+export const statusEnum = mysqlEnum("status", ["Not Started", "In Progress", "Completed", "On Hold", "Overdue"]);
+export const memberLevelEnum = mysqlEnum("member_level", ["C-Level", "Manager", "SEO Lead", "SEO Specialist", "Junior", "Intern"]);
+export const reviewTypeEnum = mysqlEnum("review_type", ["thumbs_up", "thumbs_down", "star_rating", "detailed_review"]);
+export const itemStatusEnum = mysqlEnum("item_status", ["pending", "in_progress", "completed", "rejected"]);
+export const userRoleEnum = mysqlEnum("user_role", ["admin", "manager", "client"]);
+export const documentCategoryEnum = mysqlEnum("document_category", [
   "Executive Summary",
   "Strategic Implementation", 
   "Expert Guidelines",
@@ -39,118 +39,105 @@ export const documentCategoryEnum = pgEnum("document_category", [
   "Checklists"
 ]);
 
-// Session storage table for Replit Auth
-export const sessions = pgTable(
+// Session storage table for Express Session
+export const sessions = mysqlTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
+    sid: varchar("sid", { length: 255 }).primaryKey(),
+    sess: json("sess").notNull(),
     expire: timestamp("expire").notNull(),
   },
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
 // Enhanced User storage table with Member Authority (MA) system and SAAS auth
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique().notNull(),
-  password: varchar("password"),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  role: userRoleEnum("user_role").default("client"), // DMS Role
-  memberLevel: memberLevelEnum("member_level").default("SEO Specialist"),
-  memberAuthority: integer("member_authority").default(100), // MA Score (0-1000)
-  experienceScore: integer("experience_score").default(50), // E1: Experience
-  expertiseScore: integer("expertise_score").default(50), // E2: Expertise  
-  authorityScore: integer("authority_score").default(50), // A: Authority
-  trustScore: integer("trust_score").default(50), // T: Trustworthiness
-  tasksCompleted: integer("tasks_completed").default(0),
-  averageRating: decimal("average_rating", { precision: 3, scale: 2 }).default("0.00"),
-  // Gamification fields
-  experiencePoints: integer("experience_points").default(0),
-  currentLevel: integer("current_level").default(1),
-  totalBadges: integer("total_badges").default(0),
-  streakDays: integer("streak_days").default(0),
-  lastActivityDate: timestamp("last_activity_date"),
+export const users = mysqlTable("users", {
+  id: varchar("id", { length: 255 }).primaryKey().notNull(),
+  email: varchar("email", { length: 255 }).unique().notNull(),
+  password: varchar("password", { length: 255 }),
+  firstName: varchar("first_name", { length: 255 }),
+  lastName: varchar("last_name", { length: 255 }),
+  profileImageUrl: varchar("profile_image_url", { length: 512 }),
+  isAdmin: boolean("is_admin").default(false),
   isEmailVerified: boolean("is_email_verified").default(false),
-  emailVerificationToken: varchar("email_verification_token"),
-  passwordResetToken: varchar("password_reset_token"),
-  passwordResetExpires: timestamp("password_reset_expires", { withTimezone: true }),
+  emailVerificationToken: varchar("email_verification_token", { length: 255 }),
+  passwordResetToken: varchar("password_reset_token", { length: 255 }),
+  passwordResetExpires: timestamp("password_reset_expires"),
+  memberAuthorityScore: decimal("member_authority_score", { precision: 5, scale: 2 }).default("0.00"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
 // Projects table
-export const projects = pgTable("dms_projects", {
-  id: serial("id").primaryKey(),
+export const projects = mysqlTable("projects", {
+  id: int("id").primaryKey().autoincrement(),
   projectName: varchar("project_name", { length: 255 }).notNull(),
-  ownerId: varchar("owner_id").notNull().references(() => users.id),
+  ownerId: varchar("owner_id", { length: 255 }).notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Project members with permissions
-export const projectMembers = pgTable("dms_project_members", {
-  id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  permissionLevel: permissionEnum("permission_level").default("view"),
+export const projectMembers = mysqlTable("dms_project_members", {
+  id: int("id").primaryKey().autoincrement(),
+  projectId: int("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
+  permissionLevel: varchar("permission_level", { length: 50 }).default("view"),
 });
 
 // Enhanced Tasks table
-export const tasks = pgTable("dms_tasks", {
-  id: serial("id").primaryKey(),
-  projectId: integer("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
+export const tasks = mysqlTable("tasks", {
+  id: int("id").primaryKey().autoincrement(),
+  projectId: int("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
   taskName: varchar("task_name", { length: 255 }).notNull(),
-  assignedToId: varchar("assigned_to_id").references(() => users.id),
+  assignedToId: varchar("assigned_to_id", { length: 255 }).references(() => users.id),
   startDate: date("start_date"),
   endDate: date("end_date"),
-  progress: integer("progress").default(0),
-  pillar: pillarEnum("pillar"),
-  phase: phaseEnum("phase"),
+  progress: int("progress").default(0),
+  pillar: varchar("pillar", { length: 100 }),
+  phase: varchar("phase", { length: 100 }),
   guidelineDocLink: varchar("guideline_doc_link", { length: 255 }),
-  status: statusEnum("status").default("Not Started"),
+  status: varchar("status", { length: 50 }).default("Not Started"),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
 // Task Items - Granular checklist items within tasks
-export const taskItems = pgTable("dms_task_items", {
-  id: serial("id").primaryKey(),
-  taskId: integer("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+export const taskItems = mysqlTable("dms_task_items", {
+  id: int("id").primaryKey().autoincrement(),
+  taskId: int("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
   itemName: varchar("item_name", { length: 255 }).notNull(),
   description: text("description"),
-  assignedToId: varchar("assigned_to_id").references(() => users.id),
-  status: itemStatusEnum("status").default("pending"),
+  assignedToId: varchar("assigned_to_id", { length: 255 }).references(() => users.id),
+  status: varchar("status", { length: 50 }).default("pending"),
   completedAt: timestamp("completed_at"),
   estimatedHours: decimal("estimated_hours", { precision: 4, scale: 2 }),
   actualHours: decimal("actual_hours", { precision: 4, scale: 2 }),
-  priority: integer("priority").default(1), // 1-5 scale
-  orderIndex: integer("order_index").default(0),
+  priority: int("priority").default(1), // 1-5 scale
+  orderIndex: int("order_index").default(0),
   createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
 // Task Sub-items - Non-assignable micro-tasks
-export const taskSubItems = pgTable("dms_task_sub_items", {
-  id: serial("id").primaryKey(),
-  taskItemId: integer("task_item_id").notNull().references(() => taskItems.id, { onDelete: "cascade" }),
+export const taskSubItems = mysqlTable("dms_task_sub_items", {
+  id: int("id").primaryKey().autoincrement(),
+  taskItemId: int("task_item_id").notNull().references(() => taskItems.id, { onDelete: "cascade" }),
   subItemName: varchar("sub_item_name", { length: 255 }).notNull(),
   isCompleted: boolean("is_completed").default(false),
   completedAt: timestamp("completed_at"),
-  orderIndex: integer("order_index").default(0),
+  orderIndex: int("order_index").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Task Reviews & Social Validation System
-export const taskReviews = pgTable("dms_task_reviews", {
-  id: serial("id").primaryKey(),
-  taskId: integer("task_id").notNull().references(() => tasks.id),
-  reviewerId: varchar("reviewer_id").notNull().references(() => users.id),
-  revieweeId: varchar("reviewee_id").notNull().references(() => users.id), // Task assignee
-  reviewType: reviewTypeEnum("review_type").notNull(),
-  rating: integer("rating"), // 1-5 stars (optional)
+export const taskReviews = mysqlTable("dms_task_reviews", {
+  id: int("id").primaryKey().autoincrement(),
+  taskId: int("task_id").notNull().references(() => tasks.id),
+  reviewerId: varchar("reviewer_id", { length: 255 }).notNull().references(() => users.id),
+  revieweeId: varchar("reviewee_id", { length: 255 }).notNull().references(() => users.id), // Task assignee
+  reviewType: varchar("review_type", { length: 50 }).notNull(),
+  rating: int("rating"), // 1-5 stars (optional)
   feedback: text("feedback"),
   isPublic: boolean("is_public").default(true),
   authorityWeight: decimal("authority_weight", { precision: 3, scale: 2 }).default("1.00"), // Based on reviewer MA
@@ -158,27 +145,27 @@ export const taskReviews = pgTable("dms_task_reviews", {
 });
 
 // Member Authority History - Track MA changes over time
-export const authorityHistory = pgTable("dms_authority_history", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  previousMA: integer("previous_ma"),
-  newMA: integer("new_ma"),
+export const authorityHistory = mysqlTable("dms_authority_history", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
+  previousMA: int("previous_ma"),
+  newMA: int("new_ma"),
   changeReason: varchar("change_reason", { length: 255 }), // "task_completion", "peer_review", "performance_decay"
-  relatedTaskId: integer("related_task_id").references(() => tasks.id),
-  relatedReviewId: integer("related_review_id").references(() => taskReviews.id),
+  relatedTaskId: int("related_task_id").references(() => tasks.id),
+  relatedReviewId: int("related_review_id").references(() => taskReviews.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Grace Period Requests - For handling negative reviews
-export const gracePeriodRequests = pgTable("dms_grace_period_requests", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  taskId: integer("task_id").notNull().references(() => tasks.id),
-  reviewId: integer("review_id").notNull().references(() => taskReviews.id),
+export const gracePeriodRequests = mysqlTable("dms_grace_period_requests", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
+  taskId: int("task_id").notNull().references(() => tasks.id),
+  reviewId: int("review_id").notNull().references(() => taskReviews.id),
   reason: text("reason").notNull(),
   status: varchar("status", { length: 50 }).default("pending"), // pending, approved, rejected
-  requestedDays: integer("requested_days").default(3),
-  approvedBy: varchar("approved_by").references(() => users.id),
+  requestedDays: int("requested_days").default(3),
+  approvedBy: varchar("approved_by", { length: 255 }).references(() => users.id),
   approvedAt: timestamp("approved_at"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -300,8 +287,8 @@ export const gracePeriodRequestsRelations = relations(gracePeriodRequests, ({ on
 }));
 
 // DMS Document Management Tables
-export const dmsDocuments = pgTable("dms_documents", {
-  id: serial("id").primaryKey(),
+export const dmsDocuments = mysqlTable("dms_documents", {
+  id: int("id").primaryKey().autoincrement(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   originalFilename: varchar("original_filename", { length: 255 }).notNull(),
@@ -309,43 +296,43 @@ export const dmsDocuments = pgTable("dms_documents", {
   filepath: varchar("filepath", { length: 500 }).notNull(),
   fileExtension: varchar("file_extension", { length: 10 }).notNull(),
   mimeType: varchar("mime_type", { length: 100 }).notNull(),
-  fileSize: integer("file_size").notNull(),
-  category: documentCategoryEnum("category").notNull(),
+  fileSize: int("file_size").notNull(),
+  category: varchar("category", { length: 100 }).notNull(),
   subcategory: varchar("subcategory", { length: 255 }),
-  tags: text("tags").array(),
-  uploadedBy: varchar("uploaded_by").notNull(),
+  tags: text("tags"),
+  uploadedBy: varchar("uploaded_by", { length: 255 }).notNull(),
   isPublic: boolean("is_public").default(false),
-  downloadCount: integer("download_count").default(0),
+  downloadCount: int("download_count").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 });
 
-export const taskDocumentLinks = pgTable("task_document_links", {
-  id: serial("id").primaryKey(),
-  taskId: integer("task_id").notNull(),
-  documentId: integer("document_id").notNull(),
-  linkedBy: varchar("linked_by").notNull(),
+export const taskDocumentLinks = mysqlTable("task_document_links", {
+  id: int("id").primaryKey().autoincrement(),
+  taskId: int("task_id").notNull(),
+  documentId: int("document_id").notNull(),
+  linkedBy: varchar("linked_by", { length: 255 }).notNull(),
   linkedAt: timestamp("linked_at").defaultNow().notNull(),
 });
 
-export const documentAccess = pgTable("document_access", {
-  id: serial("id").primaryKey(),
-  documentId: integer("document_id").notNull(),
-  userId: varchar("user_id").notNull(),
-  accessType: permissionEnum("access_type").notNull(),
-  grantedBy: varchar("granted_by").notNull(),
+export const documentAccess = mysqlTable("document_access", {
+  id: int("id").primaryKey().autoincrement(),
+  documentId: int("document_id").notNull(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  accessType: varchar("access_type", { length: 50 }).notNull(),
+  grantedBy: varchar("granted_by", { length: 255 }).notNull(),
   grantedAt: timestamp("granted_at").defaultNow().notNull(),
 });
 
-export const documentVersions = pgTable("document_versions", {
-  id: serial("id").primaryKey(),
-  documentId: integer("document_id").notNull(),
-  versionNumber: integer("version_number").notNull(),
+export const documentVersions = mysqlTable("document_versions", {
+  id: int("id").primaryKey().autoincrement(),
+  documentId: int("document_id").notNull(),
+  versionNumber: int("version_number").notNull(),
   originalFilename: varchar("original_filename", { length: 255 }).notNull(),
   diskFilename: varchar("disk_filename", { length: 255 }).notNull(),
   filepath: varchar("filepath", { length: 500 }).notNull(),
-  fileSize: integer("file_size").notNull(),
-  uploadedBy: varchar("uploaded_by").notNull(),
+  fileSize: int("file_size").notNull(),
+  uploadedBy: varchar("uploaded_by", { length: 255 }).notNull(),
   changeNotes: text("change_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -469,46 +456,46 @@ export type InsertDocumentVersion = z.infer<typeof insertDocumentVersionSchema>;
 // Gamification Tables
 
 // User Badges
-export const userBadges = pgTable("user_badges", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  badgeType: varchar("badge_type").notNull(),
-  badgeName: varchar("badge_name").notNull(),
-  badgeDescription: varchar("badge_description"),
-  iconName: varchar("icon_name").notNull(),
+export const userBadges = mysqlTable("user_badges", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  badgeType: varchar("badge_type", { length: 100 }).notNull(),
+  badgeName: varchar("badge_name", { length: 255 }).notNull(),
+  badgeDescription: varchar("badge_description", { length: 500 }),
+  iconName: varchar("icon_name", { length: 255 }).notNull(),
   earnedAt: timestamp("earned_at").defaultNow(),
 });
 
 // Achievement Definitions
-export const achievements = pgTable("achievements", {
-  id: serial("id").primaryKey(),
-  name: varchar("name").notNull().unique(),
-  description: varchar("description").notNull(),
-  iconName: varchar("icon_name").notNull(),
-  badgeColor: varchar("badge_color").default("blue"),
-  requiredValue: integer("required_value").default(1),
-  category: varchar("category").notNull(),
+export const achievements = mysqlTable("achievements", {
+  id: int("id").primaryKey().autoincrement(),
+  name: varchar("name", { length: 255 }).notNull().unique(),
+  description: varchar("description", { length: 500 }).notNull(),
+  iconName: varchar("icon_name", { length: 255 }).notNull(),
+  badgeColor: varchar("badge_color", { length: 50 }).default("blue"),
+  requiredValue: int("required_value").default(1),
+  category: varchar("category", { length: 100 }).notNull(),
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 // User Activity Log
-export const userActivityLog = pgTable("user_activity_log", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  activityType: varchar("activity_type").notNull(),
-  pointsEarned: integer("points_earned").default(0),
-  relatedId: integer("related_id"),
+export const userActivityLog = mysqlTable("user_activity_log", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  activityType: varchar("activity_type", { length: 100 }).notNull(),
+  pointsEarned: int("points_earned").default(0),
+  relatedId: int("related_id"),
   activityDate: timestamp("activity_date").defaultNow(),
 });
 
 // Leaderboard entries
-export const leaderboard = pgTable("leaderboard", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  category: varchar("category").notNull(),
-  rank: integer("rank").notNull(),
-  score: integer("score").notNull(),
+export const leaderboard = mysqlTable("leaderboard", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  category: varchar("category", { length: 100 }).notNull(),
+  rank: int("rank").notNull(),
+  score: int("score").notNull(),
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 

@@ -90,6 +90,9 @@ export default function AdminDocuments() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<any>(null);
+  const [editCategory, setEditCategory] = useState<string>("");
 
   // Check for upload action in URL parameters
   useEffect(() => {
@@ -102,7 +105,7 @@ export default function AdminDocuments() {
   }, [location]);
 
   // Fetch documents with admin privileges
-  const { data: documents = [], isLoading } = useQuery({
+  const { data: documents = [], isLoading, refetch } = useQuery({
     queryKey: ["/api/documents", searchQuery, selectedCategory],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -158,8 +161,9 @@ export default function AdminDocuments() {
         title: "Success",
         description: "Document uploaded successfully",
       });
-      // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      // Refetch the current query to get updated data immediately
+      refetch();
+      // Invalidate all document queries and stats
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setUploadOpen(false);
@@ -177,7 +181,10 @@ export default function AdminDocuments() {
 
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      const res = await apiRequest(`/api/documents/${documentId}`, "DELETE");
+      const res = await fetch(`/api/documents/${documentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(errorText || "Delete failed");
@@ -189,15 +196,83 @@ export default function AdminDocuments() {
         title: "Success",
         description: "Document deleted successfully",
       });
-      // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      // Refetch the current query to get updated data
+      refetch();
+      // Also invalidate all document queries and stats
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete document",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Edit mutation for admin documents
+  const editMutation = useMutation({
+    mutationFn: async ({ documentId, data }: { documentId: number; data: any }) => {
+      const res = await fetch(`/api/documents/${documentId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Edit failed');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      setShowEditModal(false);
+      setEditingDocument(null);
+      toast({
+        title: "Success",
+        description: "Document updated successfully",
+      });
+      // Invalidate all document queries
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   const onUpload = (data: any) => {
     uploadMutation.mutate(data);
+  };
+
+  // Handle edit functionality
+  const handleEditDocument = (document: any) => {
+    setEditingDocument(document);
+    setEditCategory(document.category);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingDocument) return;
+    
+    const formData = new FormData(e.currentTarget);
+    const documentId = editingDocument.id;
+    
+    const data = {
+      title: formData.get('title') as string,
+      description: formData.get('description') as string,
+      category: editCategory,
+      isPublic: Boolean(formData.get('isPublic')),
+    };
+    editMutation.mutate({ documentId, data });
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -545,6 +620,7 @@ export default function AdminDocuments() {
                               size="sm"
                               variant="outline"
                               className="h-8 w-8 p-0"
+                              onClick={() => handleEditDocument(doc)}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -567,6 +643,92 @@ export default function AdminDocuments() {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit Document Modal */}
+        <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+          <DialogContent className="glass-modal max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Edit Document</DialogTitle>
+            </DialogHeader>
+            {editingDocument && (
+              <form onSubmit={handleEditSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Document Title
+                  </label>
+                  <Input
+                    name="title"
+                    placeholder="Enter document title"
+                    required
+                    defaultValue={editingDocument.title}
+                    className="glass-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description (Optional)
+                  </label>
+                  <Textarea
+                    name="description"
+                    placeholder="Brief description of the document"
+                    defaultValue={editingDocument.description}
+                    className="glass-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <Select value={editCategory} onValueChange={setEditCategory}>
+                    <SelectTrigger className="glass-input">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {documentCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="editIsPublic"
+                    name="isPublic"
+                    defaultChecked={editingDocument.isPublic}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="editIsPublic" className="text-sm">
+                    Make this document available to all users
+                  </label>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowEditModal(false)}
+                    className="glass-button"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={editMutation.isPending}
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                  >
+                    {editMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Footer />

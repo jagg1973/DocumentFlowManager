@@ -27,7 +27,7 @@ import {
   FileIcon,
   Plus
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -53,6 +53,20 @@ interface Document {
   };
 }
 
+const documentCategories = [
+  "Executive Summary",
+  "Strategic Implementation", 
+  "Expert Guidelines",
+  "Essential Considerations",
+  "Ongoing Management",
+  "SEO Email Synergy",
+  "SEO Social Media Synergy",
+  "SEO Press Release Synergy",
+  "SEO PPC Synergy",
+  "Templates",
+  "Checklists"
+];
+
 export default function DocumentLibrary() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -61,6 +75,8 @@ export default function DocumentLibrary() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
@@ -93,7 +109,7 @@ export default function DocumentLibrary() {
   };
 
   // Fetch documents
-  const { data: documents = [], isLoading } = useQuery({
+  const { data: documents = [], isLoading, refetch: refetchDocuments } = useQuery({
     queryKey: ["/api/documents", searchQuery, selectedCategory],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -103,6 +119,10 @@ export default function DocumentLibrary() {
       // Extract data from API response wrapper
       return response.data || response || [];
     },
+    staleTime: 0, // Always consider data stale to force refresh
+    gcTime: 0, // Don't cache data
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true,
   });
 
   // Upload mutation
@@ -118,22 +138,121 @@ export default function DocumentLibrary() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    onMutate: async (formData) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/documents"] });
+      
+      // Snapshot the previous value
+      const previousDocuments = queryClient.getQueryData(["/api/documents", searchQuery, selectedCategory]);
+      
+      // Create temporary document object for optimistic update
+      const tempDocument = {
+        id: `temp-${Date.now()}`,
+        title: formData.get('title') as string || 'Uploading...',
+        originalFilename: (formData.get('file') as File)?.name || 'Unknown file',
+        fileExtension: (formData.get('file') as File)?.name?.split('.').pop() || 'unknown',
+        category: formData.get('category') as string || 'Unknown',
+        uploadedBy: user?.id || 'unknown',
+        uploader: {
+          firstName: user?.firstName || 'Unknown',
+          lastName: user?.lastName || 'User'
+        },
+        createdAt: new Date().toISOString(),
+        fileSize: (formData.get('file') as File)?.size || 0,
+        downloadCount: 0,
+        isPublic: Boolean(formData.get('isPublic')),
+        tags: ((formData.get('tags') as string) || '').split(',').map(tag => tag.trim()).filter(Boolean),
+        description: (formData.get('description') as string) || ''
+      };
+      
+      // Optimistically update to add the new document immediately
+      queryClient.setQueryData(["/api/documents", searchQuery, selectedCategory], (old: any) => {
+        if (!old || !Array.isArray(old)) return [tempDocument];
+        return [tempDocument, ...old];
+      });
+      
+      return { previousDocuments };
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousDocuments) {
+        queryClient.setQueryData(["/api/documents", searchQuery, selectedCategory], context.previousDocuments);
+      }
+      toast({
+        title: "Error",
+        description: "Failed to upload document",
+        variant: "destructive",
+      });
+    },
+    onSuccess: async (newDocument) => {
       setShowUploadModal(false);
       toast({
         title: "Success",
         description: "Document uploaded successfully",
       });
     },
-    onError: (error) => {
+    onSettled: () => {
+      // Always refetch after mutation to get real data from server
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+    },
+  });
+
+  // Edit mutation
+  const editMutation = useMutation({
+    mutationFn: async ({ documentId, data }: { documentId: number; data: Partial<Document> }) => {
+      const res = await fetch(`/api/documents/${documentId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Edit failed');
+      }
+      return res.json();
+    },
+    onMutate: async ({ documentId, data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/documents"] });
+      
+      // Snapshot the previous value
+      const previousDocuments = queryClient.getQueryData(["/api/documents", searchQuery, selectedCategory]);
+      
+      // Optimistically update the document
+      queryClient.setQueryData(["/api/documents", searchQuery, selectedCategory], (old: any) => {
+        if (!old || !Array.isArray(old)) return [];
+        return old.map((doc: any) => 
+          doc.id === documentId ? { ...doc, ...data, updatedAt: new Date().toISOString() } : doc
+        );
+      });
+      
+      return { previousDocuments };
+    },
+    onError: (err, { documentId }, context) => {
+      // Rollback on error
+      if (context?.previousDocuments) {
+        queryClient.setQueryData(["/api/documents", searchQuery, selectedCategory], context.previousDocuments);
+      }
       toast({
         title: "Error",
-        description: "Failed to upload document",
+        description: "Failed to update document",
         variant: "destructive",
       });
+    },
+    onSuccess: () => {
+      setShowEditModal(false);
+      setEditingDocument(null);
+      toast({
+        title: "Success",
+        description: "Document updated successfully",
+      });
+    },
+    onSettled: () => {
+      // Always refetch after mutation to ensure data consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
     },
   });
 
@@ -149,14 +268,41 @@ export default function DocumentLibrary() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      // Invalidate all document queries regardless of search/category params
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+    onMutate: async (documentId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["/api/documents"] });
+      
+      // Snapshot the previous value
+      const previousDocuments = queryClient.getQueryData(["/api/documents", searchQuery, selectedCategory]);
+      
+      // Optimistically update to remove this document immediately
+      queryClient.setQueryData(["/api/documents", searchQuery, selectedCategory], (old: any) => {
+        if (!old || !Array.isArray(old)) return [];
+        return old.filter((doc: any) => doc.id !== documentId);
+      });
+      
+      return { previousDocuments };
+    },
+    onError: (err, documentId, context) => {
+      // Rollback on error
+      if (context?.previousDocuments) {
+        queryClient.setQueryData(["/api/documents", searchQuery, selectedCategory], context.previousDocuments);
+      }
+      toast({
+        title: "Error",
+        description: "Failed to delete document",
+        variant: "destructive",
+      });
+    },
+    onSuccess: async (_, documentId) => {
       toast({
         title: "Success",
         description: "Document deleted successfully",
       });
+    },
+    onSettled: () => {
+      // Always refetch after mutation to ensure data consistency
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
     },
   });
 
@@ -164,6 +310,28 @@ export default function DocumentLibrary() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     uploadMutation.mutate(formData);
+  };
+
+  // Handle edit functionality
+  const handleEditDocument = (document: Document) => {
+    setEditingDocument(document);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingDocument) return;
+    
+    const formData = new FormData(e.currentTarget);
+    const documentId = editingDocument.id;
+    const data = {
+      title: formData.get('title') as string,
+      description: formData.get('description') as string,
+      category: formData.get('category') as string,
+      tags: (formData.get('tags') as string).split(',').map(tag => tag.trim()).filter(Boolean),
+      isPublic: Boolean(formData.get('isPublic')),
+    };
+    editMutation.mutate({ documentId, data });
   };
 
   const formatFileSize = (bytes: number) => {
@@ -187,20 +355,6 @@ export default function DocumentLibrary() {
     };
     return iconMap[extension.toLowerCase()] || "text-gray-500";
   };
-
-  const categories = [
-    "Executive Summary",
-    "Strategic Implementation",
-    "Expert Guidelines", 
-    "Essential Considerations",
-    "Ongoing Management",
-    "SEO Email Synergy",
-    "SEO Social Media Synergy",
-    "SEO Press Release Synergy",
-    "SEO PPC Synergy",
-    "Templates",
-    "Checklists"
-  ];
 
   // Allow access for admin, manager, or users without a role set (default to admin access)
   const hasAdminAccess = !user?.userRole || user?.userRole === 'admin' || user?.userRole === 'manager';
@@ -293,7 +447,7 @@ export default function DocumentLibrary() {
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((category) => (
+                        {documentCategories.map((category) => (
                           <SelectItem key={category} value={category}>
                             {category}
                           </SelectItem>
@@ -374,7 +528,7 @@ export default function DocumentLibrary() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map((category) => (
+                    {documentCategories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
@@ -387,6 +541,14 @@ export default function DocumentLibrary() {
                   className="glass-button"
                 >
                   {viewMode === "grid" ? <FolderOpen className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => refetchDocuments()}
+                  disabled={isLoading}
+                  className="glass-button"
+                >
+                  {isLoading ? "Refreshing..." : "Refresh"}
                 </Button>
               </div>
             </div>
@@ -498,7 +660,12 @@ export default function DocumentLibrary() {
                       >
                         <Download className="w-4 h-4" />
                       </Button>
-                      <Button size="sm" variant="outline" className="glass-button">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="glass-button"
+                        onClick={() => handleEditDocument(document)}
+                      >
                         <Edit2 className="w-4 h-4" />
                       </Button>
                       <Button 
@@ -516,6 +683,105 @@ export default function DocumentLibrary() {
             ))}
           </div>
         )}
+
+        {/* Edit Document Modal */}
+        <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+          <DialogTrigger asChild>
+            <Button className="hidden" />
+          </DialogTrigger>
+          <DialogContent className="glass-modal max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Document</DialogTitle>
+            </DialogHeader>
+            {editingDocument && (
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="title">Document Title</Label>
+                  <Input
+                    id="title"
+                    name="title"
+                    placeholder="Enter document title"
+                    required
+                    defaultValue={editingDocument.title}
+                    className="glass-input"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    name="description"
+                    placeholder="Brief description of the document"
+                    rows={3}
+                    defaultValue={editingDocument.description}
+                    className="glass-input"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="category">Category</Label>
+                  <Select name="category" required defaultValue={editingDocument.category}>
+                    <SelectTrigger className="glass-input">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {documentCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="subcategory">Subcategory (Optional)</Label>
+                  <Input
+                    id="subcategory"
+                    name="subcategory"
+                    placeholder="e.g., Technical SEO, Content Planning"
+                    defaultValue={editingDocument.subcategory}
+                    className="glass-input"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="tags"
+                    name="tags"
+                    placeholder="seo, technical, guidelines, checklist"
+                    defaultValue={editingDocument.tags.join(', ')}
+                    className="glass-input"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="isPublic"
+                    name="isPublic"
+                    defaultChecked={editingDocument.isPublic}
+                    className="w-4 h-4"
+                  />
+                  <Label htmlFor="isPublic">Make this document public to all users</Label>
+                </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    type="submit" 
+                    disabled={editMutation.isPending}
+                    className="flex-1"
+                  >
+                    {editMutation.isPending ? "Updating..." : "Update Document"}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowEditModal(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
