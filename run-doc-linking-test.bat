@@ -1,0 +1,6 @@
+@echo off
+echo Installing dependencies...
+npm install axios form-data
+
+echo Running document linking test inside Docker container...
+docker-compose exec -e DOCKER_ENV=true app node test-doc-linking.js
