@@ -215,6 +215,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Tasks endpoints
+  app.get("/api/projects/:id/tasks", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const projectId = parseInt(req.params.id);
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to access this project's tasks" });
+      }
+      const tasks = await storage.getTasksForProject(projectId);
+      res.json(tasks);
+    } catch (error) {
+      console.error(`Error fetching tasks for project ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+
+  app.post("/api/projects/:id/tasks", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const projectId = parseInt(req.params.id);
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to create tasks for this project" });
+      }
+      // Handle assignedToId properly - convert 'unassigned' to null
+      const taskData = { ...req.body, projectId, createdBy: req.session.userId };
+      if (taskData.assignedToId === 'unassigned' || taskData.assignedToId === '' || !taskData.assignedToId) {
+        taskData.assignedToId = null;
+      } else if (taskData.assignedToId) {
+        // If a specific user is assigned, verify they exist
+        try {
+          const assignedUser = await storage.getUser(taskData.assignedToId);
+          if (!assignedUser) {
+            taskData.assignedToId = null; // User doesn't exist, set to unassigned
+          }
+        } catch (error) {
+          taskData.assignedToId = null; // Error getting user, set to unassigned
+        }
+      }
+      
+      const task = await storage.createTask(taskData);
+      
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`project-${projectId}`).emit('task:created', task);
+      }
+      
+      res.status(201).json(task);
+    } catch (error) {
+      console.error(`Error creating task for project ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to create task" });
+    }
+  });
+
+  // Members endpoints
+  app.get("/api/projects/:id/members", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const projectId = parseInt(req.params.id);
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to access this project's members" });
+      }
+      const members = await storage.getProjectMembers(projectId);
+      res.json(members);
+    } catch (error) {
+      console.error(`Error fetching members for project ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to fetch project members" });
+    }
+  });
+
   // Document routes
   app.get('/api/documents', async (req: any, res: any) => {
     try {
@@ -378,7 +456,7 @@ Document Details:
 - Category: ${document.category}
 - Original Filename: ${document.originalFilename}
 - File Size: ${document.fileSize} bytes
-- Downloads: ${document.downloadCount + 1}
+- Downloads: ${(document.downloadCount || 0) + 1}
 
 In a production environment, this would be the actual file content.
       
@@ -905,9 +983,9 @@ Generated on: ${new Date().toISOString()}`;
         project.projectName,
         tasks.map(task => ({
           taskName: task.taskName,
-          pillar: task.pillar,
-          phase: task.phase,
-          status: task.status
+          pillar: task.pillar || 'General',
+          phase: task.phase || 'Planning',
+          status: task.status || 'Not Started'
         })),
         req.body.targetAudience,
         req.body.websiteType
@@ -947,9 +1025,9 @@ Generated on: ${new Date().toISOString()}`;
         project.projectName,
         tasks.map(task => ({
           taskName: task.taskName,
-          pillar: task.pillar,
-          phase: task.phase,
-          status: task.status,
+          pillar: task.pillar || 'General',
+          phase: task.phase || 'Planning',
+          status: task.status || 'Not Started',
           progress: task.progress || 0
         }))
       );
@@ -1063,12 +1141,28 @@ Generated on: ${new Date().toISOString()}`;
         return res.status(403).json({ error: 'Access denied' });
       }
       
+      // Handle assignedToId properly - convert 'unassigned' to null
+      let assignedToId = req.body.assignedToId;
+      if (assignedToId === 'unassigned' || assignedToId === '' || !assignedToId) {
+        assignedToId = null;
+      } else if (assignedToId && assignedToId !== userId) {
+        // If a specific user is assigned, verify they exist and have access to this project
+        try {
+          const assignedUser = await storage.getUser(assignedToId);
+          if (!assignedUser) {
+            assignedToId = null; // User doesn't exist, set to unassigned
+          }
+        } catch (error) {
+          assignedToId = null; // Error getting user, set to unassigned
+        }
+      }
+      
       const task = await storage.createTask({
         projectId,
         taskName: req.body.taskName,
         pillar: req.body.pillar || 'Technical SEO',
         phase: req.body.phase || 'Foundation',
-        assignedToId: req.body.assignedToId || userId,
+        assignedToId: assignedToId,
         startDate: req.body.startDate ? new Date(req.body.startDate) : new Date(),
         endDate: req.body.endDate ? new Date(req.body.endDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
         description: req.body.description || '',
@@ -1143,12 +1237,12 @@ Generated on: ${new Date().toISOString()}`;
       }
       
       res.json({
-        experiencePoints: user.experiencePoints || 0,
-        currentLevel: user.currentLevel || 1,
-        totalBadges: user.totalBadges || 0,
-        streakDays: user.streakDays || 0,
-        tasksCompleted: user.tasksCompleted || 0,
-        averageRating: user.averageRating || "0.00",
+        experiencePoints: 0, // Default value since property doesn't exist
+        currentLevel: 1, // Default value since property doesn't exist
+        totalBadges: 0, // Default value since property doesn't exist
+        streakDays: 0, // Default value since property doesn't exist
+        tasksCompleted: 0, // Default value since property doesn't exist
+        averageRating: "0.00", // Default value since property doesn't exist
       });
     } catch (error) {
       console.error("Error fetching user stats:", error);
