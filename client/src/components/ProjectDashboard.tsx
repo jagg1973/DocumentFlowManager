@@ -129,7 +129,7 @@ export default function ProjectDashboard({ userId }: ProjectDashboardProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Fetch projects with enhanced data
-  const { data: projects = [], isLoading, refetch } = useQuery({
+  const { data: projects = [], isLoading } = useQuery({
     queryKey: ["/api/projects"],
     select: (data: any[]) => data.map(project => ({
       ...project,
@@ -174,7 +174,7 @@ export default function ProjectDashboard({ userId }: ProjectDashboardProps) {
             <BarChart3 className="w-4 h-4 mr-2" />
             Analytics
           </Button>
-          <CreateProjectModal onSuccess={() => refetch()} />
+          <CreateProjectModal />
         </div>
       </div>
 
