@@ -340,6 +340,26 @@ export const userActivityLog = mysqlTable(
   })
 );
 
+// Task Permissions
+export const taskPermissions = mysqlTable("task_permissions", {
+  id: int("id").primaryKey().autoincrement(),
+  taskId: int("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  permissionType: mysqlEnum("permission_type", ["view", "edit", "admin"]).notNull(),
+  grantedBy: varchar("granted_by", { length: 255 }).references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueTaskPermission: unique("unique_task_permission").on(table.taskId, table.userId),
+}));
+
+// Task Comment Mentions
+export const taskCommentMentions = mysqlTable("task_comment_mentions", {
+  id: int("id").primaryKey().autoincrement(),
+  commentId: int("comment_id").notNull().references(() => taskComments.id, { onDelete: "cascade" }),
+  mentionedUserId: varchar("mentioned_user_id", { length: 255 }).notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   ownedProjects: many(projects),
@@ -555,124 +575,128 @@ export const documentVersionsRelations = relations(documentVersions, ({ one }) =
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
-});
+} as const);
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+} as const);
 
 export const insertProjectMemberSchema = createInsertSchema(projectMembers).omit({
   id: true,
-});
+} as const);
 
 export const insertTaskItemSchema = createInsertSchema(taskItems).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+} as const);
 
 export const insertTaskSubItemSchema = createInsertSchema(taskSubItems).omit({
   id: true,
   createdAt: true,
-});
+} as const);
 
 export const insertTaskReviewSchema = createInsertSchema(taskReviews).omit({
   id: true,
   createdAt: true,
   authorityWeight: true,
-});
+} as const);
 
 export const insertGracePeriodRequestSchema = createInsertSchema(gracePeriodRequests).omit({
   id: true,
   createdAt: true,
   approvedAt: true,
   expiresAt: true,
-});
+} as const);
 
 export const insertTaskFollowerSchema = createInsertSchema(taskFollowers).omit({
   id: true,
   createdAt: true,
-});
+} as const);
 
 export const insertTaskCommentSchema = createInsertSchema(taskComments).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+} as const);
 
 export const insertTaskAttachmentSchema = createInsertSchema(taskAttachments).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+} as const);
 
 export const insertTaskActivitySchema = createInsertSchema(taskActivities).omit({
   id: true,
   createdAt: true,
-});
+} as const);
 
 export const insertTaskNotificationSchema = createInsertSchema(taskNotifications).omit({
   id: true,
   createdAt: true,
-});
+} as const);
 
 export const insertTaskDependencySchema = createInsertSchema(taskDependencies).omit({
   id: true,
   createdAt: true,
-});
+} as const);
 
 export const insertTaskTimeEntrySchema = createInsertSchema(taskTimeEntries).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+} as const);
 
 export const insertTaskTemplateSchema = createInsertSchema(taskTemplates).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+} as const);
 
 export const insertDmsDocumentSchema = createInsertSchema(dmsDocuments).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
   downloadCount: true,
-});
+} as const);
 
 export const insertTaskDocumentLinkSchema = createInsertSchema(taskDocumentLinks).omit({
   id: true,
   linkedAt: true,
-});
+} as const);
 
 export const insertDocumentAccessSchema = createInsertSchema(documentAccess).omit({
   id: true,
   grantedAt: true,
-});
+} as const);
 
 export const insertDocumentVersionSchema = createInsertSchema(documentVersions).omit({
   id: true,
   createdAt: true,
-});
+} as const);
 
 export const insertUserActivityLogSchema = createInsertSchema(userActivityLog).omit({
   id: true,
   activityDate: true,
-});
+} as const);
 
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type UserType = User; // Alias for compatibility
+export type InsertUser = UpsertUser; // Alias for compatibility
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type ProjectMember = typeof projectMembers.$inferSelect;
 export type InsertProjectMember = z.infer<typeof insertProjectMemberSchema>;
+export type UpdateProjectMember = Partial<InsertProjectMember>;
 export type TaskItem = typeof taskItems.$inferSelect;
 export type InsertTaskItem = z.infer<typeof insertTaskItemSchema>;
+export type UpdateTaskItem = Partial<InsertTaskItem>;
 export type TaskSubItem = typeof taskSubItems.$inferSelect;
 export type InsertTaskSubItem = z.infer<typeof insertTaskSubItemSchema>;
 export type TaskReview = typeof taskReviews.$inferSelect;

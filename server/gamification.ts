@@ -138,7 +138,7 @@ export async function awardExperience(userId: string, activityType: keyof typeof
     const points = ACTIVITY_POINTS[activityType];
     if (!points) return;
 
-    await storage.logActivity(userId, activityType.toLowerCase(), points, relatedId);
+    await storage.logActivity(userId, activityType.toLowerCase(), points, relatedId?.toString());
     await storage.updateUserExperience(userId, points);
     await checkAchievements(userId);
   } catch (error) {

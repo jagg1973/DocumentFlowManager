@@ -55,16 +55,20 @@ app.get('/api/health', (req, res) => {
 
 registerRoutes(app);
 
+const PORT = parseInt(process.env.PORT || "5000", 10);
+let server: any;
+
 if (app.get("env") === "development") {
-  setupVite(app);
+  server = app.listen(PORT, "0.0.0.0", () => {
+    log(`Server running on port ${PORT}`);
+  });
+  setupVite(app, server);
 } else {
   serveStatic(app);
+  server = app.listen(PORT, "0.0.0.0", () => {
+    log(`Server running on port ${PORT}`);
+  });
 }
-
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, "0.0.0.0", () => {
-  log(`Server running on port ${PORT}`);
-});
 
 process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully');
