@@ -10,6 +10,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import AddTaskModal from "@/components/AddTaskModal";
 import AITaskSuggestions from "@/components/AITaskSuggestions";
+import ProjectDashboardEnhanced from "@/components/ProjectDashboardEnhanced";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -65,10 +66,18 @@ export default function ProjectPage() {
     enabled: !!project && !projectLoading, // Enable this query only after the project has been successfully fetched.
   });
 
-  const { data: members } = useQuery<Array<{ id: number; userId: string; user: { id: string; firstName: string | null; lastName: string | null; }; }>>({
+  const { data: members } = useQuery<Array<{ id: number; userId: string; user: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null; }; }>>({
     queryKey: [`/api/projects/${id}/members`],
     queryFn: async () => {
-      return await apiRequest(`/api/projects/${id}/members`, "GET");
+      const response = await apiRequest(`/api/projects/${id}/members`, "GET");
+      // Ensure profileImageUrl is included
+      return response?.map((member: any) => ({
+        ...member,
+        user: {
+          ...member.user,
+          profileImageUrl: member.user.profileImageUrl || null
+        }
+      })) || [];
     },
     enabled: !!project && !projectLoading, // Enable this query only after the project has been successfully fetched.
   });
@@ -201,58 +210,14 @@ export default function ProjectPage() {
               </div>
             </div>
 
-        {/* Tasks */}
+        {/* Enhanced Task Management Dashboard */}
         <div className="grid gap-6">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle className="specular-highlight">Project Tasks</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {tasks && tasks.length > 0 ? (
-                <div className="grid gap-4">
-                  {tasks.map((task) => (
-                    <div key={task.id} className="glass-card p-4 rounded-lg shadow-card">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">{task.taskName}</h3>
-                        <Badge variant={
-                          task.status === 'Completed' ? 'default' :
-                          task.status === 'In Progress' ? 'secondary' :
-                          'outline'
-                        }>
-                          {task.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-300">
-                        <Badge variant="outline">{task.pillar}</Badge>
-                        <Badge variant="outline">{task.phase}</Badge>
-                        {task.progress && (
-                          <span>{task.progress}% complete</span>
-                        )}
-                      </div>
-                      {task.startDate && task.endDate && (
-                        <div className="mt-2 text-sm text-gray-500">
-                          {new Date(task.startDate).toLocaleDateString()} - {new Date(task.endDate).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No tasks yet</h3>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4">Get started by creating your first task for this project.</p>
-                  <Button 
-                    className="glass-button-primary"
-                    onClick={() => setShowAddTaskModal(true)}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />
-                    Create First Task
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <ProjectDashboardEnhanced
+            projectId={parseInt(id as string)}
+            currentUser={user}
+            members={members}
+            onTaskUpdate={handleTaskCreated}
+          />
         </div>
           </>
         ) : null}

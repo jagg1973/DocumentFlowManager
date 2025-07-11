@@ -12,6 +12,15 @@ import {
   taskDocumentLinks,
   documentAccess,
   documentVersions,
+  taskFollowers,
+  taskComments,
+  taskCommentReactions,
+  taskAttachments,
+  taskActivities,
+  taskNotifications,
+  taskDependencies,
+  taskTimeEntries,
+  taskTemplates,
   type User,
   type UpsertUser,
   type Project,
@@ -37,6 +46,24 @@ import {
   type InsertDocumentAccess,
   type DocumentVersion,
   type InsertDocumentVersion,
+  type TaskFollower,
+  type InsertTaskFollower,
+  type TaskComment,
+  type InsertTaskComment,
+  type TaskCommentReaction,
+  type InsertTaskCommentReaction,
+  type TaskAttachment,
+  type InsertTaskAttachment,
+  type TaskActivity,
+  type InsertTaskActivity,
+  type TaskNotification,
+  type InsertTaskNotification,
+  type TaskDependency,
+  type InsertTaskDependency,
+  type TaskTimeEntry,
+  type InsertTaskTimeEntry,
+  type TaskTemplate,
+  type InsertTaskTemplate,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, asc, or, ilike, sql, gte, lte } from "drizzle-orm";
@@ -76,6 +103,54 @@ export interface IStorage {
   getTasksForProject(projectId: number): Promise<Task[]>;
   updateTask(id: number, task: Partial<InsertTask>): Promise<Task | undefined>;
   deleteTask(id: number): Promise<void>;
+  
+  // Task Followers operations
+  addTaskFollower(taskId: number, userId: string, followType?: string): Promise<void>;
+  removeTaskFollower(taskId: number, userId: string): Promise<void>;
+  getTaskFollowers(taskId: number): Promise<TaskFollower[]>;
+  isUserFollowingTask(taskId: number, userId: string): Promise<boolean>;
+  
+  // Task Comments operations
+  createTaskComment(comment: InsertTaskComment): Promise<TaskComment>;
+  getTaskComments(taskId: number): Promise<TaskComment[]>;
+  updateTaskComment(id: number, comment: Partial<InsertTaskComment>): Promise<TaskComment | undefined>;
+  deleteTaskComment(id: number): Promise<void>;
+  
+  // Task Comment Reactions operations
+  addCommentReaction(commentId: number, userId: string, reactionType: string): Promise<void>;
+  removeCommentReaction(commentId: number, userId: string, reactionType: string): Promise<void>;
+  getCommentReactions(commentId: number): Promise<TaskCommentReaction[]>;
+  
+  // Task Attachments operations
+  createTaskAttachment(attachment: InsertTaskAttachment): Promise<TaskAttachment>;
+  getTaskAttachments(taskId: number): Promise<TaskAttachment[]>;
+  deleteTaskAttachment(id: number): Promise<void>;
+  
+  // Task Activities operations
+  createTaskActivity(activity: InsertTaskActivity): Promise<TaskActivity>;
+  getTaskActivities(taskId: number): Promise<TaskActivity[]>;
+  
+  // Task Notifications operations
+  createTaskNotification(notification: InsertTaskNotification): Promise<TaskNotification>;
+  getTaskNotifications(userId: string): Promise<TaskNotification[]>;
+  markNotificationAsRead(id: number): Promise<void>;
+  
+  // Task Dependencies operations
+  addTaskDependency(dependency: InsertTaskDependency): Promise<TaskDependency>;
+  removeTaskDependency(id: number): Promise<void>;
+  getTaskDependencies(taskId: number): Promise<TaskDependency[]>;
+  
+  // Task Time Entries operations
+  createTimeEntry(entry: InsertTaskTimeEntry): Promise<TaskTimeEntry>;
+  getTimeEntries(taskId: number): Promise<TaskTimeEntry[]>;
+  updateTimeEntry(id: number, entry: Partial<InsertTaskTimeEntry>): Promise<TaskTimeEntry | undefined>;
+  deleteTimeEntry(id: number): Promise<void>;
+  
+  // Task Templates operations
+  createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate>;
+  getTaskTemplates(projectId: number): Promise<TaskTemplate[]>;
+  updateTaskTemplate(id: number, template: Partial<InsertTaskTemplate>): Promise<TaskTemplate | undefined>;
+  deleteTaskTemplate(id: number): Promise<void>;
   
   // Project member operations
   addProjectMember(member: InsertProjectMember): Promise<ProjectMember>;
@@ -379,6 +454,272 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTask(id: number): Promise<void> {
     await db.delete(tasks).where(eq(tasks.id, id));
+  }
+
+  // Task Followers operations
+  async addTaskFollower(taskId: number, userId: string, followType?: string): Promise<void> {
+    await db.insert(taskFollowers).values({
+      taskId,
+      userId,
+      followType: followType || 'explicit',
+    });
+  }
+
+  async removeTaskFollower(taskId: number, userId: string): Promise<void> {
+    await db.delete(taskFollowers).where(and(
+      eq(taskFollowers.taskId, taskId),
+      eq(taskFollowers.userId, userId)
+    ));
+  }
+
+  async getTaskFollowers(taskId: number): Promise<TaskFollower[]> {
+    const followers = await db
+      .select()
+      .from(taskFollowers)
+      .where(eq(taskFollowers.taskId, taskId));
+    
+    return followers;
+  }
+
+  async isUserFollowingTask(taskId: number, userId: string): Promise<boolean> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(taskFollowers)
+      .where(and(
+        eq(taskFollowers.taskId, taskId),
+        eq(taskFollowers.userId, userId)
+      ))
+      .limit(1);
+    
+    return result.count > 0;
+  }
+
+  // Task Comments operations
+  async createTaskComment(comment: InsertTaskComment): Promise<TaskComment> {
+    const [result] = await db.insert(taskComments).values(comment).$returningId();
+    const commentId = result.id;
+    
+    // Get the created comment
+    const [newComment] = await db.select().from(taskComments).where(eq(taskComments.id, commentId));
+    return newComment;
+  }
+
+  async getTaskComments(taskId: number): Promise<TaskComment[]> {
+    const comments = await db
+      .select()
+      .from(taskComments)
+      .where(eq(taskComments.taskId, taskId))
+      .orderBy(asc(taskComments.createdAt));
+    
+    return comments;
+  }
+
+  async updateTaskComment(id: number, comment: Partial<InsertTaskComment>): Promise<TaskComment | undefined> {
+    await db
+      .update(taskComments)
+      .set(comment)
+      .where(eq(taskComments.id, id));
+    
+    // Get the updated comment
+    const [updatedComment] = await db.select().from(taskComments).where(eq(taskComments.id, id));
+    return updatedComment;
+  }
+
+  async deleteTaskComment(id: number): Promise<void> {
+    await db.delete(taskComments).where(eq(taskComments.id, id));
+  }
+
+  // Task Comment Reactions operations
+  async addCommentReaction(commentId: number, userId: string, reactionType: string): Promise<void> {
+    await db.insert(taskCommentReactions).values({
+      commentId,
+      userId,
+      reactionType,
+    });
+  }
+
+  async removeCommentReaction(commentId: number, userId: string, reactionType: string): Promise<void> {
+    await db.delete(taskCommentReactions).where(and(
+      eq(taskCommentReactions.commentId, commentId),
+      eq(taskCommentReactions.userId, userId),
+      eq(taskCommentReactions.reactionType, reactionType)
+    ));
+  }
+
+  async getCommentReactions(commentId: number): Promise<TaskCommentReaction[]> {
+    const reactions = await db
+      .select()
+      .from(taskCommentReactions)
+      .where(eq(taskCommentReactions.commentId, commentId));
+    
+    return reactions;
+  }
+
+  // Task Attachments operations
+  async createTaskAttachment(attachment: InsertTaskAttachment): Promise<TaskAttachment> {
+    const [result] = await db.insert(taskAttachments).values(attachment).$returningId();
+    const attachmentId = result.id;
+    
+    // Get the created attachment
+    const [newAttachment] = await db.select().from(taskAttachments).where(eq(taskAttachments.id, attachmentId));
+    return newAttachment;
+  }
+
+  async getTaskAttachments(taskId: number): Promise<TaskAttachment[]> {
+    const attachments = await db
+      .select()
+      .from(taskAttachments)
+      .where(eq(taskAttachments.taskId, taskId))
+      .orderBy(asc(taskAttachments.createdAt));
+    
+    return attachments;
+  }
+
+  async deleteTaskAttachment(id: number): Promise<void> {
+    await db.delete(taskAttachments).where(eq(taskAttachments.id, id));
+  }
+
+  // Task Activities operations
+  async createTaskActivity(activity: InsertTaskActivity): Promise<TaskActivity> {
+    const [result] = await db.insert(taskActivities).values(activity).$returningId();
+    const activityId = result.id;
+    
+    // Get the created activity
+    const [newActivity] = await db.select().from(taskActivities).where(eq(taskActivities.id, activityId));
+    return newActivity;
+  }
+
+  async getTaskActivities(taskId: number): Promise<TaskActivity[]> {
+    const activities = await db
+      .select()
+      .from(taskActivities)
+      .where(eq(taskActivities.taskId, taskId))
+      .orderBy(desc(taskActivities.createdAt));
+    
+    return activities;
+  }
+
+  // Task Notifications operations
+  async createTaskNotification(notification: InsertTaskNotification): Promise<TaskNotification> {
+    const [result] = await db.insert(taskNotifications).values(notification).$returningId();
+    const notificationId = result.id;
+    
+    // Get the created notification
+    const [newNotification] = await db.select().from(taskNotifications).where(eq(taskNotifications.id, notificationId));
+    return newNotification;
+  }
+
+  async getTaskNotifications(userId: string): Promise<TaskNotification[]> {
+    const notifications = await db
+      .select()
+      .from(taskNotifications)
+      .where(eq(taskNotifications.recipientId, userId))
+      .orderBy(desc(taskNotifications.createdAt));
+    
+    return notifications;
+  }
+
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db
+      .update(taskNotifications)
+      .set({ isRead: true, readAt: new Date() })
+      .where(eq(taskNotifications.id, id));
+  }
+
+  // Task Dependencies operations
+  async addTaskDependency(dependency: InsertTaskDependency): Promise<TaskDependency> {
+    const [result] = await db.insert(taskDependencies).values(dependency).$returningId();
+    const dependencyId = result.id;
+    
+    // Get the created dependency
+    const [newDependency] = await db.select().from(taskDependencies).where(eq(taskDependencies.id, dependencyId));
+    return newDependency;
+  }
+
+  async removeTaskDependency(id: number): Promise<void> {
+    await db.delete(taskDependencies).where(eq(taskDependencies.id, id));
+  }
+
+  async getTaskDependencies(taskId: number): Promise<TaskDependency[]> {
+    const dependencies = await db
+      .select()
+      .from(taskDependencies)
+      .where(or(
+        eq(taskDependencies.predecessorTaskId, taskId),
+        eq(taskDependencies.successorTaskId, taskId)
+      ));
+    
+    return dependencies;
+  }
+
+  // Task Time Entries operations
+  async createTimeEntry(entry: InsertTaskTimeEntry): Promise<TaskTimeEntry> {
+    const [result] = await db.insert(taskTimeEntries).values(entry).$returningId();
+    const entryId = result.id;
+    
+    // Get the created time entry
+    const [newEntry] = await db.select().from(taskTimeEntries).where(eq(taskTimeEntries.id, entryId));
+    return newEntry;
+  }
+
+  async getTimeEntries(taskId: number): Promise<TaskTimeEntry[]> {
+    const entries = await db
+      .select()
+      .from(taskTimeEntries)
+      .where(eq(taskTimeEntries.taskId, taskId))
+      .orderBy(desc(taskTimeEntries.startTime));
+    
+    return entries;
+  }
+
+  async updateTimeEntry(id: number, entry: Partial<InsertTaskTimeEntry>): Promise<TaskTimeEntry | undefined> {
+    await db
+      .update(taskTimeEntries)
+      .set(entry)
+      .where(eq(taskTimeEntries.id, id));
+    
+    // Get the updated time entry
+    const [updatedEntry] = await db.select().from(taskTimeEntries).where(eq(taskTimeEntries.id, id));
+    return updatedEntry;
+  }
+
+  async deleteTimeEntry(id: number): Promise<void> {
+    await db.delete(taskTimeEntries).where(eq(taskTimeEntries.id, id));
+  }
+
+  // Task Templates operations
+  async createTaskTemplate(template: InsertTaskTemplate): Promise<TaskTemplate> {
+    const [result] = await db.insert(taskTemplates).values(template).$returningId();
+    const templateId = result.id;
+    
+    // Get the created template
+    const [newTemplate] = await db.select().from(taskTemplates).where(eq(taskTemplates.id, templateId));
+    return newTemplate;
+  }
+
+  async getTaskTemplates(projectId: number): Promise<TaskTemplate[]> {
+    const templates = await db
+      .select()
+      .from(taskTemplates)
+      .where(eq(taskTemplates.projectId, projectId))
+      .orderBy(asc(taskTemplates.templateName));
+    
+    return templates;
+  }
+
+  async updateTaskTemplate(id: number, template: Partial<InsertTaskTemplate>): Promise<TaskTemplate | undefined> {
+    await db
+      .update(taskTemplates)
+      .set(template)
+      .where(eq(taskTemplates.id, id));
+    
+    // Get the updated template
+    const [updatedTemplate] = await db.select().from(taskTemplates).where(eq(taskTemplates.id, id));
+    return updatedTemplate;
+  }
+
+  async deleteTaskTemplate(id: number): Promise<void> {
+    await db.delete(taskTemplates).where(eq(taskTemplates.id, id));
   }
 
   // Project member operations

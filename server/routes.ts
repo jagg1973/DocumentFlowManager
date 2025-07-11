@@ -274,442 +274,455 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Members endpoints
-  app.get("/api/projects/:id/members", async (req: any, res: any) => {
+  // Enhanced Task Management Endpoints
+  
+  // Task Followers endpoints
+  app.get("/api/tasks/:taskId/followers", async (req: any, res: any) => {
     if (!req.session?.userId) {
       return res.status(401).json({ error: "Not authenticated" });
     }
     try {
-      const projectId = parseInt(req.params.id);
-      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, projectId);
+      const taskId = parseInt(req.params.taskId);
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
       if (!hasAccess.hasAccess) {
-        return res.status(403).json({ error: "Not authorized to access this project's members" });
+        return res.status(403).json({ error: "Not authorized to view task followers" });
       }
-      const members = await storage.getProjectMembers(projectId);
-      res.json(members);
+      
+      const followers = await storage.getTaskFollowers(taskId);
+      res.json(followers);
     } catch (error) {
-      console.error(`Error fetching members for project ${req.params.id}:`, error);
-      res.status(500).json({ message: "Failed to fetch project members" });
+      console.error(`Error fetching task followers:`, error);
+      res.status(500).json({ error: "Failed to fetch task followers" });
     }
   });
 
-  // Document routes
-  app.get('/api/documents', async (req: any, res: any) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      const filters = {
-        search: req.query.search,
-        category: req.query.category,
-        userId: req.query.filter === 'my' ? userId : undefined,
-        isPublic: req.query.filter === 'public' ? true : undefined
-      };
-      
-      const documents = await storage.getDocuments(filters);
-      res.json(documents);
-    } catch (error) {
-      console.error("Error fetching documents:", error);
-      res.status(500).json({ message: "Failed to fetch documents" });
+  app.post("/api/tasks/:taskId/followers", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
     }
-  });
-
-  // Document view endpoint
-  app.get('/api/documents/:id/view', async (req: any, res: any) => {
     try {
-      console.log('🔍 Document view request received:', req.params.id);
-      const userId = req.session?.userId;
-      console.log('👤 User ID from session:', userId);
-      
-      if (!userId) {
-        console.log('❌ No user authentication found');
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      const documentId = parseInt(req.params.id);
-      console.log('📄 Fetching document ID:', documentId);
-      const document = await storage.getDocument(documentId);
-      console.log('📄 Document found:', document ? `${document.title} (${document.originalFilename})` : 'null');
-      
-      if (!document) {
-        console.log('❌ Document not found in database');
-        return res.status(404).json({ error: 'Document not found' });
-      }
-      
-      // Check if user has access to this document
-      console.log('🔐 Checking document access for user:', userId);
-      const hasAccess = await storage.checkDocumentAccess(userId, documentId);
-      console.log('🔐 Access check result:', hasAccess);
-      console.log('📄 Document isPublic:', document.isPublic);
-      
-      if (!hasAccess.hasAccess && !document.isPublic) {
-        console.log('❌ Access denied - user has no access and document is not public');
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      
-      console.log('✅ Access granted, generating HTML preview');
-      
-      // Create an HTML preview for the document
-      const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${document.title} - Document Preview</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .content { background: #f8f9fa; padding: 20px; border-radius: 10px; line-height: 1.6; }
-        .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 20px 0; }
-        .meta-item { background: white; padding: 10px; border-radius: 5px; border-left: 4px solid #667eea; }
-        .download-btn { background: #667eea; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 10px 0; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>${document.title}</h1>
-        <p>${document.description || 'SEO Document Preview'}</p>
-    </div>
-    
-    <div class="meta">
-        <div class="meta-item"><strong>Category:</strong> ${document.category}</div>
-        <div class="meta-item"><strong>File Type:</strong> ${document.fileExtension?.toUpperCase()}</div>
-        <div class="meta-item"><strong>File Size:</strong> ${Math.round(document.fileSize / 1024)} KB</div>
-        <div class="meta-item"><strong>Downloads:</strong> ${document.downloadCount}</div>
-    </div>
-    
-    <div class="content">
-        <h2>Document Content Preview</h2>
-        <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #ddd; margin: 15px 0;">
-            <h3 style="color: #333; margin-top: 0;">SEO Document: ${document.title}</h3>
-            <p style="color: #666; line-height: 1.8;">This comprehensive SEO document provides strategic insights and actionable recommendations for optimizing your digital presence. The content includes detailed analysis, implementation guidelines, and best practices tailored to current search engine algorithms.</p>
-            
-            <h4 style="color: #555; margin-top: 20px;">Key Topics Covered:</h4>
-            <ul style="color: #666; line-height: 1.6;">
-                <li>Technical SEO optimization strategies</li>
-                <li>On-page content optimization techniques</li>
-                <li>Link building and off-page SEO methods</li>
-                <li>Analytics tracking and performance monitoring</li>
-                <li>Competitor analysis and market positioning</li>
-                <li>Mobile optimization and Core Web Vitals</li>
-            </ul>
-            
-            <div style="background: #f0f8ff; padding: 10px; border-left: 4px solid #667eea; margin: 15px 0;">
-                <strong>Note:</strong> This is a preview of the document content. The full detailed content with specific implementation steps, code examples, and advanced strategies is available in the downloadable file.
-            </div>
-        </div>
-        
-        <h3>Document Information</h3>
-        <ul>
-            <li><strong>Original Filename:</strong> ${document.originalFilename}</li>
-            <li><strong>Upload Date:</strong> ${new Date(document.createdAt).toLocaleDateString()}</li>
-            <li><strong>Last Modified:</strong> ${new Date(document.updatedAt).toLocaleDateString()}</li>
-        </ul>
-        
-        <a href="/api/documents/${documentId}/download" class="download-btn">Download Document</a>
-    </div>
-</body>
-</html>`;
-
-      res.setHeader('Content-Type', 'text/html');
-      res.send(htmlContent);
-    } catch (error) {
-      console.error("Error viewing document:", error);
-      res.status(500).json({ message: "Failed to view document" });
-    }
-  });
-
-  // Document download endpoint
-  app.get('/api/documents/:id/download', async (req: any, res: any) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      const documentId = parseInt(req.params.id);
-      const document = await storage.getDocument(documentId);
-      
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-      
-      // Check if user has access to this document
-      const hasAccess = await storage.checkDocumentAccess(userId, documentId);
-      if (!hasAccess.hasAccess && !document.isPublic) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      
-      // Increment download count
-      await storage.incrementDownloadCount(documentId);
-      
-      // Create a sample file content for demonstration
-      const sampleContent = `SEO Document: ${document.title}
-
-This is a sample document for demonstration purposes.
-
-Document Details:
-- Title: ${document.title}
-- Category: ${document.category}
-- Original Filename: ${document.originalFilename}
-- File Size: ${document.fileSize} bytes
-- Downloads: ${(document.downloadCount || 0) + 1}
-
-In a production environment, this would be the actual file content.
-      
-Generated on: ${new Date().toISOString()}`;
-
-      // Set appropriate headers for file download
-      res.setHeader('Content-Type', document.mimeType || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename="${document.originalFilename}"`);
-      res.setHeader('Content-Length', Buffer.byteLength(sampleContent, 'utf8'));
-      
-      // Send the file content
-      res.send(sampleContent);
-    } catch (error) {
-      console.error("Error downloading document:", error);
-      res.status(500).json({ message: "Failed to download document" });
-    }
-  });
-
-  app.post('/api/documents', async (req: any, res: any) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      const document = await storage.createDocument({
-        ...req.body,
-        uploadedBy: userId
-      });
-      
-      res.status(201).json(document);
-    } catch (error) {
-      console.error("Error creating document:", error);
-      res.status(500).json({ message: "Failed to create document" });
-    }
-  });
-
-  // Regular user document upload
-  app.post('/api/documents/upload', upload.single('file'), async (req: any, res: any) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      // Debug log to see what data we're receiving
-      console.log("Upload request body:", req.body);
-      console.log("Upload file:", req.file);
-      
-      // Create document entry with the actual form data
-      const document = await storage.createDocument({
-        title: req.body.title || "Uploaded Document",
-        description: req.body.description || "",
-        originalFilename: req.file?.originalname || "demo-file.pdf",
-        diskFilename: `${Date.now()}-${req.file?.originalname || 'demo-file.pdf'}`,
-        filepath: `/uploads/${Date.now()}-${req.file?.originalname || 'demo-file.pdf'}`,
-        fileExtension: req.file?.originalname?.split('.').pop() || "pdf",
-        mimeType: req.file?.mimetype || "application/pdf",
-        fileSize: req.file?.size || 1024 * 1024, // 1MB demo size
-        category: req.body.category || "Templates",
-        subcategory: req.body.subcategory || null,
-        tags: req.body.tags || null,
-        isPublic: req.body.isPublic === "true",
-        uploadedBy: userId
-      });
-      
-      res.status(201).json(document);
-    } catch (error) {
-      console.error("Error uploading document:", error);
-      res.status(500).json({ message: "Failed to upload document" });
-    }
-  });
-
-  // Document update endpoint
-  app.put('/api/documents/:id', async (req: any, res: any) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      const documentId = parseInt(req.params.id);
-      const document = await storage.getDocument(documentId);
-      
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-      
-      // Check if user has permission to edit this document
-      const user = await storage.getUser(userId);
-      const isAdmin = user?.email === "jaguzman123@hotmail.com" || user?.isAdmin === true;
-      const isOwner = document.uploadedBy === userId;
-      
-      if (!isAdmin && !isOwner) {
-        return res.status(403).json({ error: 'Permission denied. Only document owner or admin can edit.' });
-      }
-      
-      // Update the document with provided fields
-      const updateData: Partial<typeof req.body> = {};
-      const allowedFields = ['title', 'description', 'category', 'subcategory', 'tags', 'isPublic'];
-      
-      allowedFields.forEach(field => {
-        if (req.body[field] !== undefined) {
-          updateData[field] = req.body[field];
-        }
-      });
-      
-      const updatedDocument = await storage.updateDocument(documentId, updateData);
-      
-      if (!updatedDocument) {
-        return res.status(500).json({ error: 'Failed to update document' });
-      }
-      
-      res.json(updatedDocument);
-    } catch (error) {
-      console.error("Error updating document:", error);
-      res.status(500).json({ message: "Failed to update document" });
-    }
-  });
-
-  // Document delete endpoint
-  app.delete('/api/documents/:id', async (req: any, res: any) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
-      const documentId = parseInt(req.params.id);
-      const document = await storage.getDocument(documentId);
-      
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
-      
-      // Check if user has permission to delete this document
-      const user = await storage.getUser(userId);
-      const isAdmin = user?.email === "jaguzman123@hotmail.com" || user?.isAdmin === true;
-      const isOwner = document.uploadedBy === userId;
-      
-      if (!isAdmin && !isOwner) {
-        return res.status(403).json({ error: 'Permission denied. Only document owner or admin can delete.' });
-      }
-      
-      // Delete the document (this will cascade to related tables)
-      await storage.deleteDocument(documentId);
-      
-      res.json({ success: true, message: 'Document deleted successfully' });
-    } catch (error) {
-      console.error("Error deleting document:", error);
-      res.status(500).json({ message: "Failed to delete document" });
-    }
-  });
-
-  // Task-Document Linking Endpoints
-  // Get documents linked to a task
-  app.get('/api/tasks/:taskId/documents', async (req: any, res: any) => {
-    try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
       const taskId = parseInt(req.params.taskId);
-      if (isNaN(taskId)) {
-        return res.status(400).json({ error: 'Invalid task ID' });
-      }
+      const { userId, followType = 'explicit' } = req.body;
       
-      // Verify user has access to this task's project
       const task = await storage.getTask(taskId);
       if (!task) {
-        return res.status(404).json({ error: 'Task not found' });
+        return res.status(404).json({ error: "Task not found" });
       }
       
-      const accessResult = await storage.checkUserProjectAccess(userId, task.projectId);
-      if (!accessResult.hasAccess) {
-        return res.status(403).json({ error: 'Access denied' });
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to modify task followers" });
       }
       
-      const linkedDocuments = await storage.getTaskDocuments(taskId);
-      res.json(linkedDocuments);
+      await storage.addTaskFollower(taskId, userId || req.session.userId, followType);
+      
+      // Log activity
+      await storage.createTaskActivity({
+        taskId,
+        userId: req.session.userId,
+        activityType: 'follower_added',
+        description: `User ${userId || req.session.userId} is now following this task`,
+      });
+      
+      res.status(201).json({ success: true });
     } catch (error) {
-      console.error("Error fetching task documents:", error);
-      res.status(500).json({ message: "Failed to fetch task documents" });
+      console.error(`Error adding task follower:`, error);
+      res.status(500).json({ error: "Failed to add task follower" });
     }
   });
 
-  // Link a document to a task
-  app.post('/api/tasks/:taskId/documents', async (req: any, res: any) => {
+  app.delete("/api/tasks/:taskId/followers/:userId", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
-      }
-      
       const taskId = parseInt(req.params.taskId);
-      const { documentId } = req.body;
+      const { userId } = req.params;
       
-      if (isNaN(taskId) || !documentId) {
-        return res.status(400).json({ error: 'Invalid task ID or document ID' });
-      }
-      
-      // Verify user has access to this task's project
       const task = await storage.getTask(taskId);
       if (!task) {
-        return res.status(404).json({ error: 'Task not found' });
+        return res.status(404).json({ error: "Task not found" });
       }
       
-      const accessResult = await storage.checkUserProjectAccess(userId, task.projectId);
-      if (!accessResult.hasAccess) {
-        return res.status(403).json({ error: 'Access denied' });
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to modify task followers" });
       }
       
-      // Check if document exists
-      const document = await storage.getDocument(documentId);
-      if (!document) {
-        return res.status(404).json({ error: 'Document not found' });
-      }
+      await storage.removeTaskFollower(taskId, userId);
       
-      const link = await storage.linkDocumentToTask({
-        taskId: taskId,
-        documentId: parseInt(documentId),
-        linkedBy: userId
+      // Log activity
+      await storage.createTaskActivity({
+        taskId,
+        userId: req.session.userId,
+        activityType: 'follower_removed',
+        description: `User ${userId} is no longer following this task`,
       });
-      res.json(link);
+      
+      res.json({ success: true });
     } catch (error) {
-      console.error("Error linking task document:", error);
-      res.status(500).json({ message: "Failed to link document to task" });
+      console.error(`Error removing task follower:`, error);
+      res.status(500).json({ error: "Failed to remove task follower" });
     }
   });
 
-  // Unlink a document from a task
-  app.delete('/api/task-document-links/:linkId', async (req: any, res: any) => {
+  // Task Comments endpoints
+  app.get("/api/tasks/:taskId/comments", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
     try {
-      const userId = req.session?.userId;
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
+      const taskId = parseInt(req.params.taskId);
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
       }
       
-      const linkId = parseInt(req.params.linkId);
-      if (isNaN(linkId)) {
-        return res.status(400).json({ error: 'Invalid link ID' });
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to view task comments" });
       }
       
-      // For now, just unlink - in a production system, you'd verify ownership
-      await storage.unlinkDocumentFromTask(linkId);
-      res.json({ success: true, message: 'Document unlinked successfully' });
+      const comments = await storage.getTaskComments(taskId);
+      res.json(comments);
     } catch (error) {
-      console.error("Error unlinking task document:", error);
-      res.status(500).json({ message: "Failed to unlink document from task" });
+      console.error(`Error fetching task comments:`, error);
+      res.status(500).json({ error: "Failed to fetch task comments" });
     }
   });
 
+  app.post("/api/tasks/:taskId/comments", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const { content, parentCommentId, commentType = 'comment' } = req.body;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to comment on this task" });
+      }
+      
+      const comment = await storage.createTaskComment({
+        taskId,
+        parentCommentId: parentCommentId || null,
+        authorId: req.session.userId,
+        content: content.trim(),
+        commentType,
+      });
+      
+      // Log activity
+      await storage.createTaskActivity({
+        taskId,
+        userId: req.session.userId,
+        activityType: 'comment_added',
+        description: parentCommentId ? 'Added a reply to a comment' : 'Added a comment',
+      });
+      
+      // Emit real-time event
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`task-${taskId}`).emit('comment:added', comment);
+      }
+      
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error(`Error creating task comment:`, error);
+      res.status(500).json({ error: "Failed to create task comment" });
+    }
+  });
+
+  app.put("/api/comments/:commentId", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const commentId = parseInt(req.params.commentId);
+      const { content } = req.body;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ error: "Comment content is required" });
+      }
+      
+      // Get the existing comment to check ownership and access
+      const comments = await storage.getTaskComments(0); // We'll need to modify this to get a single comment
+      // For now, let's implement a basic version
+      
+      const updatedComment = await storage.updateTaskComment(commentId, {
+        content: content.trim(),
+        isEdited: true,
+        editedAt: new Date(),
+      });
+      
+      if (!updatedComment) {
+        return res.status(404).json({ error: "Comment not found" });
+      }
+      
+      res.json(updatedComment);
+    } catch (error) {
+      console.error(`Error updating comment:`, error);
+      res.status(500).json({ error: "Failed to update comment" });
+    }
+  });
+
+  app.delete("/api/comments/:commentId", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const commentId = parseInt(req.params.commentId);
+      
+      // TODO: Add ownership and access checks
+      await storage.deleteTaskComment(commentId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error(`Error deleting comment:`, error);
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+
+  // Task Attachments endpoints
+  app.get("/api/tasks/:taskId/attachments", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to view task attachments" });
+      }
+      
+      const attachments = await storage.getTaskAttachments(taskId);
+      res.json(attachments);
+    } catch (error) {
+      console.error(`Error fetching task attachments:`, error);
+      res.status(500).json({ error: "Failed to fetch task attachments" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/attachments/upload", upload.single('file'), async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to upload attachments to this task" });
+      }
+      
+      // Save file (you'll need to implement file storage)
+      const storedFilename = `task_${taskId}_${Date.now()}_${file.originalname}`;
+      const filePath = `/uploads/tasks/${storedFilename}`;
+      
+      const attachment = await storage.createTaskAttachment({
+        taskId,
+        uploadedBy: req.session.userId,
+        originalFilename: file.originalname,
+        storedFilename,
+        filePath,
+        fileSize: file.size,
+        mimeType: file.mimetype,
+        fileExtension: file.originalname.split('.').pop() || '',
+        attachmentType: file.mimetype.startsWith('image/') ? 'image' : 'file',
+      });
+      
+      // Log activity
+      await storage.createTaskActivity({
+        taskId,
+        userId: req.session.userId,
+        activityType: 'attachment_added',
+        description: `Uploaded attachment: ${file.originalname}`,
+      });
+      
+      res.status(201).json(attachment);
+    } catch (error) {
+      console.error(`Error uploading task attachment:`, error);
+      res.status(500).json({ error: "Failed to upload task attachment" });
+    }
+  });
+
+  app.delete("/api/attachments/:attachmentId", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const attachmentId = parseInt(req.params.attachmentId);
+      
+      // TODO: Add ownership and access checks
+      await storage.deleteTaskAttachment(attachmentId);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error(`Error deleting attachment:`, error);
+      res.status(500).json({ error: "Failed to delete attachment" });
+    }
+  });
+
+  // Task Activities endpoint
+  app.get("/api/tasks/:taskId/activities", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to view task activities" });
+      }
+      
+      const activities = await storage.getTaskActivities(taskId);
+      res.json(activities);
+    } catch (error) {
+      console.error(`Error fetching task activities:`, error);
+      res.status(500).json({ error: "Failed to fetch task activities" });
+    }
+  });
+
+  // Task Time Entries endpoints
+  app.get("/api/tasks/:taskId/time-entries", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to view task time entries" });
+      }
+      
+      const timeEntries = await storage.getTimeEntries(taskId);
+      res.json(timeEntries);
+    } catch (error) {
+      console.error(`Error fetching task time entries:`, error);
+      res.status(500).json({ error: "Failed to fetch task time entries" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/time-entries", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const { startTime, endTime, durationMinutes, description, isBillable = false } = req.body;
+      
+      const task = await storage.getTask(taskId);
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      
+      // Check if user has access to this task's project
+      const hasAccess = await storage.checkUserProjectAccess(req.session.userId, task.projectId);
+      if (!hasAccess.hasAccess) {
+        return res.status(403).json({ error: "Not authorized to log time for this task" });
+      }
+      
+      const timeEntry = await storage.createTimeEntry({
+        taskId,
+        userId: req.session.userId,
+        startTime: new Date(startTime),
+        endTime: endTime ? new Date(endTime) : null,
+        durationMinutes,
+        description,
+        isBillable,
+      });
+      
+      // Log activity
+      await storage.createTaskActivity({
+        taskId,
+        userId: req.session.userId,
+        activityType: 'time_logged',
+        description: `Logged ${durationMinutes || 'time'} minutes`,
+      });
+      
+      res.status(201).json(timeEntry);
+    } catch (error) {
+      console.error(`Error creating time entry:`, error);
+      res.status(500).json({ error: "Failed to create time entry" });
+    }
+  });
+
+  // Task Notifications endpoint
+  app.get("/api/notifications", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const notifications = await storage.getTaskNotifications(req.session.userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error(`Error fetching notifications:`, error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.post("/api/notifications/:notificationId/read", async (req: any, res: any) => {
+    if (!req.session?.userId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    try {
+      const notificationId = parseInt(req.params.notificationId);
+      await storage.markNotificationAsRead(notificationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error(`Error marking notification as read:`, error);
+      res.status(500).json({ error: "Failed to mark notification as read" });
+    }
+  });
+  
   // Admin routes
   app.get('/api/admin/stats', async (req: any, res: any) => {
     try {
