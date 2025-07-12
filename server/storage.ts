@@ -972,18 +972,73 @@ export class DatabaseStorage {
       conditions.push(eq(dmsDocuments.isPublic, filters.isPublic));
     }
 
+    let results;
     if (conditions.length > 0) {
-      return await db.select()
+      results = await db.select({
+        // Document fields
+        id: dmsDocuments.id,
+        title: dmsDocuments.title,
+        description: dmsDocuments.description,
+        originalFilename: dmsDocuments.originalFilename,
+        diskFilename: dmsDocuments.diskFilename,
+        filepath: dmsDocuments.filepath,
+        fileExtension: dmsDocuments.fileExtension,
+        mimeType: dmsDocuments.mimeType,
+        fileSize: dmsDocuments.fileSize,
+        category: dmsDocuments.category,
+        subcategory: dmsDocuments.subcategory,
+        tags: dmsDocuments.tags,
+        isPublic: dmsDocuments.isPublic,
+        uploadedBy: dmsDocuments.uploadedBy,
+        downloadCount: dmsDocuments.downloadCount,
+        createdAt: dmsDocuments.createdAt,
+        updatedAt: dmsDocuments.updatedAt,
+        // User fields
+        uploader: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        }
+      })
         .from(dmsDocuments)
         .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id))
         .where(and(...conditions))
         .orderBy(desc(dmsDocuments.createdAt));
     } else {
-      return await db.select()
+      results = await db.select({
+        // Document fields
+        id: dmsDocuments.id,
+        title: dmsDocuments.title,
+        description: dmsDocuments.description,
+        originalFilename: dmsDocuments.originalFilename,
+        diskFilename: dmsDocuments.diskFilename,
+        filepath: dmsDocuments.filepath,
+        fileExtension: dmsDocuments.fileExtension,
+        mimeType: dmsDocuments.mimeType,
+        fileSize: dmsDocuments.fileSize,
+        category: dmsDocuments.category,
+        subcategory: dmsDocuments.subcategory,
+        tags: dmsDocuments.tags,
+        isPublic: dmsDocuments.isPublic,
+        uploadedBy: dmsDocuments.uploadedBy,
+        downloadCount: dmsDocuments.downloadCount,
+        createdAt: dmsDocuments.createdAt,
+        updatedAt: dmsDocuments.updatedAt,
+        // User fields
+        uploader: {
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        }
+      })
         .from(dmsDocuments)
         .leftJoin(users, eq(dmsDocuments.uploadedBy, users.id))
         .orderBy(desc(dmsDocuments.createdAt));
     }
+
+    return results;
   }
 
   async updateUserRole(userId: string, role: string, memberLevel?: number): Promise<void> {

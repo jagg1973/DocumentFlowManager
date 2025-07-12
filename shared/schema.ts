@@ -73,44 +73,47 @@ export const users = mysqlTable("users", {
 // Projects table
 export const projects = mysqlTable("projects", {
   id: int("id").primaryKey().autoincrement(),
-  projectName: varchar("project_name", { length: 255 }).notNull(),
-  ownerId: varchar("owner_id", { length: 255 }).notNull().references(() => users.id),
-  createdAt: timestamp("created_at").defaultNow(),
+  projectName: varchar("projectName", { length: 255 }).notNull(),
+  ownerId: varchar("ownerId", { length: 255 }).notNull().references(() => users.id),
+  description: text("description"),
+  status: varchar("status", { length: 50 }).default("active"),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
 });
 
 // Project members with permissions
-export const projectMembers = mysqlTable("dms_project_members", {
+export const projectMembers = mysqlTable("project_members", {
   id: int("id").primaryKey().autoincrement(),
-  projectId: int("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
-  permissionLevel: varchar("permission_level", { length: 50 }).default("view"),
+  projectId: int("projectId").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  userId: varchar("userId", { length: 255 }).notNull().references(() => users.id),
+  permissionLevel: varchar("permissionLevel", { length: 50 }).default("view"),
 });
 
 // Enhanced Tasks table
 export const tasks = mysqlTable("tasks", {
   id: int("id").primaryKey().autoincrement(),
-  projectId: int("project_id").notNull().references(() => projects.id, { onDelete: "cascade" }),
-  taskName: varchar("task_name", { length: 255 }).notNull(),
-  assignedToId: varchar("assigned_to_id", { length: 255 }).references(() => users.id),
+  projectId: int("projectId").notNull().references(() => projects.id, { onDelete: "cascade" }),
+  taskName: varchar("taskName", { length: 255 }).notNull(),
+  assignedToId: varchar("assignedToId", { length: 255 }).references(() => users.id),
   createdBy: varchar("created_by", { length: 255 }).references(() => users.id),
   ownerId: varchar("owner_id", { length: 255 }).references(() => users.id),
   lastUpdatedBy: varchar("last_updated_by", { length: 255 }).references(() => users.id),
-  startDate: date("start_date"),
-  endDate: date("end_date"),
+  startDate: date("startDate"),
+  endDate: date("endDate"),
   progress: int("progress").default(0),
-  priority: mysqlEnum("priority", ["low", "medium", "high", "urgent"]).default("medium"),
+  priority: mysqlEnum("priority", ["Low", "Medium", "High"]).default("Medium"),
   estimatedHours: decimal("estimated_hours", { precision: 6, scale: 2 }),
   actualHours: decimal("actual_hours", { precision: 6, scale: 2 }),
   isArchived: boolean("is_archived").default(false),
   archivedAt: timestamp("archived_at"),
   dueDate: timestamp("due_date"),
-  pillar: varchar("pillar", { length: 100 }),
-  phase: varchar("phase", { length: 100 }),
+  pillar: mysqlEnum("pillar", ["Technical SEO", "On-Page & Content", "Off-Page SEO", "Analytics & Tracking"]),
+  phase: mysqlEnum("phase", ["Foundation", "Growth", "Authority"]),
   guidelineDocLink: varchar("guideline_doc_link", { length: 255 }),
-  status: varchar("status", { length: 50 }).default("Not Started"),
+  status: mysqlEnum("status", ["Not Started", "In Progress", "Completed", "On Hold", "Overdue"]).default("Not Started"),
   description: text("description"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+  createdAt: timestamp("createdAt").defaultNow(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow(),
 });
 
 // Task Items - Granular checklist items within tasks

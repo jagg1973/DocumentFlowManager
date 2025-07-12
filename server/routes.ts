@@ -1,6 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { generateTaskSuggestions, analyzeProjectGaps } from "./ai-suggestions";
@@ -8,6 +10,8 @@ import { db } from "./db";
 import { projects, userActivityLog } from "../shared/schema";
 import { eq, desc } from "drizzle-orm";
 import { awardExperience, updateStreak } from "./gamification";
+import { DocumentPreviewService } from "./document-preview.js";
+import { DocumentVersionService } from "./document-versions.js";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -18,6 +22,8 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const documentPreview = new DocumentPreviewService();
+  const documentVersions = new DocumentVersionService();
   // Health check endpoint
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
@@ -772,30 +778,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Admin access required' });
       }
       
-      // Debug log to see what data we're receiving
-      console.log("Upload request body:", req.body);
+      // Check if file was uploaded
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
       
-      // Create document entry with the actual form data
+      // Generate unique filename
+      const timestamp = Date.now();
+      const randomId = Math.floor(Math.random() * 1000000);
+      const fileExtension = path.extname(req.file.originalname).toLowerCase();
+      const diskFilename = `${timestamp}-${randomId}-${path.basename(req.file.originalname, fileExtension)}${fileExtension}`;
+      const filepath = path.join(process.cwd(), 'uploads', diskFilename);
+      
+      // Save file to disk
+      await fs.promises.writeFile(filepath, req.file.buffer);
+      
+      // Create document entry with actual file data
       const document = await storage.createDocument({
-        title: req.body.title || "Uploaded Document",
+        title: req.body.title || path.basename(req.file.originalname, fileExtension),
         description: req.body.description || "",
-        originalFilename: "demo-file.pdf",
-        diskFilename: `${Date.now()}-demo-file.pdf`,
-        filepath: "/uploads/demo-file.pdf",
-        fileExtension: "pdf",
-        mimeType: "application/pdf",
-        fileSize: 1024 * 1024, // 1MB demo size
-        category: req.body.category || "Templates",
+        originalFilename: req.file.originalname,
+        diskFilename: diskFilename,
+        filepath: `/uploads/${diskFilename}`,
+        fileExtension: fileExtension.replace('.', ''),
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        category: req.body.category || "General",
         subcategory: req.body.subcategory || null,
         tags: req.body.tags || null,
         isPublic: req.body.isPublic === "true",
         uploadedBy: userId
       });
       
+      console.log(`Admin file uploaded successfully: ${req.file.originalname} (${req.file.size} bytes)`);
       res.status(201).json(document);
     } catch (error) {
       console.error("Error uploading document:", error);
-      res.status(500).json({ message: "Failed to upload document" });
+      res.status(500).json({ message: "Failed to upload document", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -841,6 +860,235 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting document:", error);
       res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  // Regular user document endpoints
+  app.get('/api/documents', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const filters = {
+        search: req.query.search,
+        category: req.query.category,
+        isPublic: true // Regular users can only see public documents
+      };
+      
+      const documents = await storage.getDocuments(filters);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  });
+
+  app.post('/api/documents/upload', upload.single('file'), async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      console.log('Upload request body:', req.body);
+      console.log('File info:', req.file ? { 
+        originalname: req.file.originalname, 
+        mimetype: req.file.mimetype, 
+        size: req.file.size 
+      } : 'No file attached');
+      
+      // Check if file was uploaded
+      if (!req.file) {
+        console.log('No file uploaded - returning 400');
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const randomId = Math.floor(Math.random() * 1000000);
+      const fileExtension = path.extname(req.file.originalname).toLowerCase();
+      const diskFilename = `${timestamp}-${randomId}-${path.basename(req.file.originalname, fileExtension)}${fileExtension}`;
+      const filepath = path.join(process.cwd(), 'uploads', diskFilename);
+      
+      // Save file to disk
+      await fs.promises.writeFile(filepath, req.file.buffer);
+      
+      // Create document entry with actual file data
+      const document = await storage.createDocument({
+        title: req.body.title || path.basename(req.file.originalname, fileExtension),
+        description: req.body.description || "",
+        originalFilename: req.file.originalname,
+        diskFilename: diskFilename,
+        filepath: `/uploads/${diskFilename}`,
+        fileExtension: fileExtension.replace('.', ''),
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        category: req.body.category || "General",
+        subcategory: req.body.subcategory || null,
+        tags: req.body.tags || null,
+        isPublic: req.body.isPublic === "true",
+        uploadedBy: userId
+      });
+      
+      console.log(`File uploaded successfully: ${req.file.originalname} (${req.file.size} bytes)`);
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      res.status(500).json({ message: "Failed to upload document", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.get('/api/documents/:id/view', async (req: any, res: any) => {
+    console.log('Document view route accessed');
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user has access to this document
+      if (!document.isPublic) {
+        const user = await storage.getUser(userId);
+        if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+      }
+      
+      // Generate preview using the document preview service
+      console.log('Generating preview for document:', document.originalFilename, 'type:', document.mimeType);
+      const fullPath = path.join(process.cwd(), 'uploads', document.diskFilename);
+      const previewResult = await documentPreview.generatePreview(fullPath, document.mimeType, document.originalFilename, documentId);
+      
+      if (previewResult.type === 'error') {
+        return res.status(500).json({ 
+          error: 'Preview generation failed', 
+          message: previewResult.error 
+        });
+      }
+      
+      // Set appropriate content type and send response
+      res.setHeader('Content-Type', previewResult.contentType);
+      
+      if (previewResult.type === 'html') {
+        res.send(previewResult.content);
+      } else if (previewResult.type === 'json') {
+        res.json(previewResult.content);
+      } else {
+        res.send(previewResult.content);
+      }
+      
+    } catch (error) {
+      console.error("Error viewing document:", error);
+      res.status(500).json({ message: "Failed to view document" });
+    }
+  });
+
+  app.get('/api/documents/:id/download', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user has access to this document
+      if (!document.isPublic) {
+        const user = await storage.getUser(userId);
+        if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+      }
+      
+      // Serve the actual file for download
+      const fullPath = path.join(process.cwd(), 'uploads', document.diskFilename);
+      res.setHeader('Content-Type', document.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${document.originalFilename}"`);
+      res.sendFile(fullPath);
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      res.status(500).json({ message: "Failed to download document" });
+    }
+  });
+
+  app.delete('/api/documents/:id', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user owns this document or is admin
+      const user = await storage.getUser(userId);
+      if (document.uploadedBy !== userId && 
+          (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin))) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      await storage.deleteDocument(documentId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  app.put('/api/documents/:id', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user owns this document or is admin
+      const user = await storage.getUser(userId);
+      if (document.uploadedBy !== userId && 
+          (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin))) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      const updates = {
+        title: req.body.title,
+        description: req.body.description,
+        category: req.body.category,
+        subcategory: req.body.subcategory,
+        tags: req.body.tags,
+        isPublic: req.body.isPublic
+      };
+      
+      const updatedDocument = await storage.updateDocument(documentId, updates);
+      res.json(updatedDocument);
+    } catch (error) {
+      console.error("Error updating document:", error);
+      res.status(500).json({ message: "Failed to update document" });
     }
   });
 
@@ -1715,7 +1963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/tasks/comments/:commentId/reactions/:reactionId', async (req: any, res: any) => {
     try {
       const userId = req.session?.userId;
-      if (!userId) {
+           if (!userId) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
       
@@ -1751,7 +1999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const { mentionedUserId } = req.body;
-      if (!mentionedUserId) {
+           if (!mentionedUserId) {
         return res.status(400).json({ error: 'Missing required field: mentionedUserId' });
       }
       
@@ -1821,6 +2069,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ====== END PHASE 1 COMPLETION ======
 
-  const httpServer = createServer(app);
-  return httpServer;
+  // Test endpoint to verify build process
+  app.get('/api/test-build', async (req: any, res: any) => {
+    res.json({ message: 'Build process working - route added successfully' });
+  });
+  
+  // Test endpoint for debugging
+  app.get('/api/test-documents', async (req: any, res: any) => {
+    res.json({ message: 'Documents endpoint is working' });
+  });
+
+  // Route for serving raw document files (for embedding PDFs, etc.)
+  app.get('/api/documents/:id/raw', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      
+      const documentId = parseInt(req.params.id);
+      const document = await storage.getDocument(documentId);
+      
+      if (!document) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      
+      // Check if user has access to this document
+      if (!document.isPublic) {
+        const user = await storage.getUser(userId);
+        if (!user || (user.email !== "jaguzman123@hotmail.com" && !user.isAdmin)) {
+          return res.status(403).json({ error: 'Access denied' });
+        }
+      }
+      
+      // Serve the raw file
+      const fullPath = path.join(process.cwd(), 'uploads', document.diskFilename);
+      res.setHeader('Content-Type', document.mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${document.originalFilename}"`);
+      res.sendFile(fullPath);
+      
+    } catch (error) {
+      console.error("Error serving raw document:", error);
+      res.status(500).json({ message: "Failed to serve document" });
+    }
+  });
+
+  // Version History API endpoints
+  app.get('/api/documents/:id/versions', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const documentId = parseInt(req.params.id);
+      const versions = await documentVersions.getDocumentVersions(documentId);
+      
+      res.json(versions);
+    } catch (error) {
+      console.error("Error fetching document versions:", error);
+      res.status(500).json({ message: "Failed to fetch document versions", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post('/api/documents/:id/versions', upload.single('file'), async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const documentId = parseInt(req.params.id);
+      const file = req.file;
+      
+      if (!file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      // Save the new version file
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const timestamp = Date.now();
+      const fileExtension = path.extname(file.originalname);
+      const diskFilename = `${timestamp}_${file.originalname}`;
+      const filePath = path.join(uploadsDir, diskFilename);
+      
+      fs.writeFileSync(filePath, file.buffer);
+
+      const version = await documentVersions.createVersion(
+        documentId,
+        diskFilename,
+        file.size,
+        req.body.changeDescription || 'Updated document',
+        userId
+      );
+
+      res.status(201).json(version);
+    } catch (error) {
+      console.error("Error creating document version:", error);
+      res.status(500).json({ message: "Failed to create document version", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.get('/api/documents/:id/versions/:versionId', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const documentId = parseInt(req.params.id);
+      const versionId = parseInt(req.params.versionId);
+      
+      const versions = await documentVersions.getDocumentVersions(documentId);
+      const version = versions.find(v => v.id === versionId);
+      
+      if (!version) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
+
+      res.json(version);
+    } catch (error) {
+      console.error("Error fetching document version:", error);
+      res.status(500).json({ message: "Failed to fetch document version", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.post('/api/documents/:id/versions/:versionId/restore', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const documentId = parseInt(req.params.id);
+      const versionId = parseInt(req.params.versionId);
+      
+      const success = await documentVersions.restoreVersion(documentId, versionId, userId);
+      
+      if (!success) {
+        return res.status(404).json({ error: 'Version not found or restore failed' });
+      }
+
+      res.json({ message: 'Version restored successfully' });
+    } catch (error) {
+      console.error("Error restoring document version:", error);
+      res.status(500).json({ message: "Failed to restore document version", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  app.get('/api/documents/:id/versions/compare/:versionId1/:versionId2', async (req: any, res: any) => {
+    try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      const documentId = parseInt(req.params.id);
+      const versionId1 = parseInt(req.params.versionId1);
+      const versionId2 = parseInt(req.params.versionId2);
+      
+      const comparison = await documentVersions.compareVersions(versionId1, versionId2);
+      
+      res.json(comparison);
+    } catch (error) {
+      console.error("Error comparing document versions:", error);
+      res.status(500).json({ message: "Failed to compare document versions", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Create and return the HTTP server
+  const server = createServer(app);
+  return server;
 }
