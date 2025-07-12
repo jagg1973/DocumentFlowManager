@@ -1,0 +1,94 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📥 Install Dependencies
+        run: npm ci
+
+      - name: 🏗️ Build Application
+        run: npm run build
+
+      - name: 🐳 Build Docker Image
+        run: |
+          docker build -t document-flow-manager:${{ github.sha }} .
+          docker tag document-flow-manager:${{ github.sha }} document-flow-manager:latest
+
+      - name: 🧪 Test Docker Image
+        run: |
+          # Quick smoke test of the built image
+          docker run -d --name test-container -p 5000:5000 \
+            -e NODE_ENV=production \
+            -e DATABASE_URL=sqlite:///tmp/test.db \
+            -e SESSION_SECRET=test-secret \
+            document-flow-manager:${{ github.sha }}
+          
+          # Wait for container to start
+          sleep 10
+          
+          # Test health endpoint
+          curl -f http://localhost:5000/api/health || (docker logs test-container && exit 1)
+          
+          # Clean up
+          docker stop test-container
+          docker rm test-container
+
+      - name: 📊 Generate Deployment Report
+        run: |
+          echo "## Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ github.event.inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Image**: document-flow-manager:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed At**: $(date)" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🚀 Deploy to Server (Mock)
+        run: |
+          echo "Deploying to ${{ github.event.inputs.environment || 'production' }}..."
+          echo "This is where you would deploy to your actual server"
+          echo "For example:"
+          echo "  - Upload docker-compose.yml to server"
+          echo "  - SSH into server and run: docker-compose up -d"
+          echo "  - Run database migrations"
+          echo "  - Perform health checks"
+          echo "Deployment completed successfully!"
+
+      - name: 📢 Notify Success
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+          echo "Environment: ${{ github.event.inputs.environment || 'production' }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: 📢 Notify Failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Please check the logs and try again."

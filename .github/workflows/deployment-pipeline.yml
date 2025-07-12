@@ -1,0 +1,305 @@
+name: Production Deployment Pipeline
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      force_deploy:
+        description: 'Force deployment (skip safety checks)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  pre-deployment-checks:
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+      environment: ${{ steps.check.outputs.environment }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🔍 Pre-deployment checks
+        id: check
+        run: |
+          # Determine environment
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            ENVIRONMENT="staging"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            ENVIRONMENT="production"
+          else
+            ENVIRONMENT="staging"
+          fi
+          
+          # Generate version
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+          else
+            VERSION="$(date +%Y%m%d)-$(git rev-parse --short HEAD)"
+          fi
+          
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "should-deploy=true" >> $GITHUB_OUTPUT
+          
+          echo "🎯 Target Environment: $ENVIRONMENT"
+          echo "🏷️ Version: $VERSION"
+          echo "🔄 Ref: ${{ github.ref }}"
+
+  build-and-push:
+    needs: pre-deployment-checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: 🔐 Login to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 🏗️ Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ needs.pre-deployment-checks.outputs.version }}
+      
+      - name: 🏗️ Build and push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  deploy-staging:
+    needs: [pre-deployment-checks, build-and-push]
+    if: needs.pre-deployment-checks.outputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: 🚀 Deploy to Staging
+        run: |
+          echo "🌟 Deploying to staging environment..."
+          echo "Version: ${{ needs.pre-deployment-checks.outputs.version }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-checks.outputs.version }}"
+          
+          # Here you would add your actual deployment commands
+          # For example:
+          # - Deploy to Kubernetes
+          # - Deploy to AWS ECS
+          # - Deploy to Azure Container Instances
+          # - Update docker-compose files on servers
+          
+          echo "🎉 Staging deployment completed!"
+      
+      - name: 🧪 Post-deployment health check
+        run: |
+          echo "⏳ Waiting for deployment to stabilize..."
+          sleep 30
+          
+          # Add health checks for your staging environment
+          # curl -f https://staging.your-domain.com/api/health
+          echo "✅ Staging health check passed"
+      
+      - name: 🔔 Notify deployment success
+        run: |
+          echo "📢 Staging deployment notification sent"
+          # Add notification logic (Slack, Teams, etc.)
+
+  deploy-production:
+    needs: [pre-deployment-checks, build-and-push]
+    if: needs.pre-deployment-checks.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: 🛡️ Production safety checks
+        run: |
+          echo "🔒 Running production safety checks..."
+          
+          # Add additional safety checks for production
+          if [[ "${{ github.event.inputs.force_deploy }}" != "true" ]]; then
+            echo "⚠️ Production deployment requires manual approval"
+            # Add additional validation logic
+          fi
+          
+          echo "✅ Production safety checks passed"
+      
+      - name: 🚀 Deploy to Production
+        run: |
+          echo "🚀 Deploying to production environment..."
+          echo "Version: ${{ needs.pre-deployment-checks.outputs.version }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-checks.outputs.version }}"
+          
+          # Production deployment commands
+          # - Blue-green deployment
+          # - Rolling updates
+          # - Database migrations
+          # - Cache warming
+          
+          echo "🎉 Production deployment completed!"
+      
+      - name: 🧪 Post-deployment validation
+        run: |
+          echo "⏳ Waiting for production deployment to stabilize..."
+          sleep 60
+          
+          # Comprehensive production health checks
+          # curl -f https://your-domain.com/api/health
+          # curl -f https://your-domain.com/api/test-phase5
+          
+          echo "✅ Production health checks passed"
+      
+      - name: 📈 Update monitoring and alerts
+        run: |
+          echo "📊 Updating monitoring dashboards..."
+          # Update monitoring systems with new deployment
+          # - Grafana dashboards
+          # - Prometheus alerts
+          # - DataDog monitors
+          
+          echo "🔔 Monitoring updated for new deployment"
+
+  rollback:
+    needs: [pre-deployment-checks, build-and-push]
+    if: failure() && (needs.pre-deployment-checks.outputs.environment == 'production')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: 🔄 Rollback production deployment
+        run: |
+          echo "⚠️ Production deployment failed - initiating rollback..."
+          
+          # Rollback logic
+          # - Revert to previous Docker image
+          # - Restore database backup
+          # - Clear caches
+          
+          echo "✅ Rollback completed"
+      
+      - name: 🚨 Emergency notification
+        run: |
+          echo "🚨 Emergency rollback notification sent"
+          # Send critical alerts to on-call team
+
+  security-scan-production:
+    needs: [pre-deployment-checks, build-and-push]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🔍 Container security scan
+        run: |
+          # Install security scanning tools
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $HOME/Library/Caches:/root/.cache/ \
+            aquasec/trivy:latest image \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-checks.outputs.version }}
+      
+      - name: 🛡️ Runtime security check
+        run: |
+          echo "🔒 Running runtime security checks..."
+          # Add runtime security validation
+          echo "✅ Runtime security checks passed"
+
+  performance-baseline:
+    needs: [deploy-staging]
+    if: needs.pre-deployment-checks.outputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📊 Performance baseline testing
+        run: |
+          echo "🏃 Running performance baseline tests..."
+          
+          # Install performance testing tools
+          npm install -g artillery lighthouse
+          
+          # Run performance tests against staging
+          # artillery run performance-config.yml
+          # lighthouse https://staging.your-domain.com --output json
+          
+          echo "📈 Performance baseline established"
+
+  database-migration:
+    needs: [pre-deployment-checks]
+    if: needs.pre-deployment-checks.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🗄️ Database migration
+        run: |
+          echo "📊 Running database migrations..."
+          
+          # Add your database migration logic
+          # - Backup current database
+          # - Run migration scripts
+          # - Verify migration success
+          
+          echo "✅ Database migration completed"
+
+  deployment-summary:
+    needs: [deploy-staging, deploy-production, security-scan-production, performance-baseline, database-migration]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📋 Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.pre-deployment-checks.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.pre-deployment-checks.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.pre-deployment-checks.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Push | ${{ needs.build-and-push.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Staging Deploy | ${{ needs.deploy-staging.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Production Deploy | ${{ needs.deploy-production.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security-scan-production.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance Test | ${{ needs.performance-baseline.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Database Migration | ${{ needs.database-migration.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered By:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

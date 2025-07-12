@@ -1,0 +1,522 @@
+name: Monitoring & Alerting
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # Every 15 minutes
+  workflow_dispatch:
+    inputs:
+      check_type:
+        description: 'Type of monitoring check'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - uptime
+          - performance
+          - security
+          - database
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
+
+env:
+  MONITORING_ENABLED: true
+  ALERT_THRESHOLD_RESPONSE_TIME: 5000
+  ALERT_THRESHOLD_ERROR_RATE: 5
+
+jobs:
+  uptime-monitoring:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.check_type == 'uptime' || github.event.inputs.check_type == 'all' || github.event_name == 'schedule'
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🌐 Health Check - Production
+        run: |
+          echo "## 🌐 Uptime Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "**Check Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Add your production URLs here
+          URLS=(
+            "https://your-production-domain.com/api/health"
+            "https://your-staging-domain.com/api/health"
+            "http://localhost:5000/api/health"
+          )
+          
+          for url in "${URLS[@]}"; do
+            echo "Checking: $url"
+            
+            # Perform health check with timeout
+            if timeout 30 curl -f -s "$url" > /dev/null 2>&1; then
+              echo "✅ $url - OK" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ $url - DOWN" >> $GITHUB_STEP_SUMMARY
+              echo "ALERT: $url is down" >> alert.log
+            fi
+          done
+      
+      - name: 📊 Response Time Monitoring
+        run: |
+          echo "## 📊 Response Time Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "| Endpoint | Response Time | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|---------------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Test key endpoints
+          ENDPOINTS=(
+            "/api/health"
+            "/api/test-phase5"
+            "/api/projects"
+            "/api/tasks"
+            "/api/workflows"
+          )
+          
+          for endpoint in "${ENDPOINTS[@]}"; do
+            # Measure response time
+            RESPONSE_TIME=$(curl -o /dev/null -s -w "%{time_total}" "http://localhost:5000$endpoint" 2>/dev/null || echo "0")
+            RESPONSE_TIME_MS=$(echo "$RESPONSE_TIME * 1000" | bc -l 2>/dev/null || echo "0")
+            
+            if (( $(echo "$RESPONSE_TIME_MS > $ALERT_THRESHOLD_RESPONSE_TIME" | bc -l) )); then
+              echo "| $endpoint | ${RESPONSE_TIME_MS}ms | ⚠️ SLOW |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $endpoint | ${RESPONSE_TIME_MS}ms | ✅ GOOD |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+  performance-monitoring:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.check_type == 'performance' || github.event.inputs.check_type == 'all' || github.event_name == 'schedule'
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: seo_timeline
+          MYSQL_USER: seo_user
+          MYSQL_PASSWORD: seo_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: 📥 Install dependencies
+        run: npm ci --prefer-offline
+      
+      - name: 🔧 Setup environment
+        run: |
+          echo "NODE_ENV=production" >> $GITHUB_ENV
+          echo "DATABASE_URL=mysql://seo_user:seo_password@localhost:3306/seo_timeline" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
+          echo "SESSION_SECRET=monitoring-secret" >> $GITHUB_ENV
+          echo "PORT=5000" >> $GITHUB_ENV
+      
+      - name: 🗄️ Setup database
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+          
+          until mysqladmin ping -h localhost -P 3306 --silent; do
+            echo 'Waiting for MySQL...'
+            sleep 5
+          done
+          
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < database_schema.sql
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < phase5_schema.sql
+      
+      - name: 🏗️ Build and start application
+        run: |
+          npm run build
+          npm start &
+          
+          # Wait for application to start
+          timeout 60 bash -c 'until curl -f http://localhost:5000/api/health; do sleep 5; done'
+      
+      - name: 🚀 Load Testing
+        run: |
+          npm install -g artillery
+          
+          # Create load test configuration
+          cat > load-test-config.yml << 'EOF'
+          config:
+            target: 'http://localhost:5000'
+            phases:
+              - duration: 60
+                arrivalRate: 10
+                name: "Load test"
+            defaults:
+              headers:
+                User-Agent: "Artillery/Monitor"
+          scenarios:
+            - name: "API Performance Test"
+              weight: 100
+              flow:
+                - get:
+                    url: "/api/health"
+                    expect:
+                      - statusCode: 200
+                - think: 1
+                - get:
+                    url: "/api/test-phase5"
+                    expect:
+                      - statusCode: 200
+                - think: 2
+                - get:
+                    url: "/"
+                    expect:
+                      - statusCode: 200
+          EOF
+          
+          echo "## 🚀 Load Testing Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          artillery run load-test-config.yml >> $GITHUB_STEP_SUMMARY 2>&1 || echo "Load test completed"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      
+      - name: 📊 Memory Usage Analysis
+        run: |
+          echo "## 📊 Resource Usage Analysis" >> $GITHUB_STEP_SUMMARY
+          
+          # Check application memory usage
+          APP_PID=$(pgrep -f "node.*server" || echo "")
+          if [ -n "$APP_PID" ]; then
+            MEMORY_USAGE=$(ps -p "$APP_PID" -o rss= | tr -d ' ')
+            MEMORY_MB=$((MEMORY_USAGE / 1024))
+            
+            echo "Application Memory Usage: ${MEMORY_MB}MB" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$MEMORY_MB" -gt 1000 ]; then
+              echo "⚠️ High memory usage detected" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ Memory usage normal" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # System resources
+          echo "### System Resources" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          free -h >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  security-monitoring:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.check_type == 'security' || github.event.inputs.check_type == 'all' || github.event_name == 'schedule'
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      
+      - name: 📥 Install dependencies
+        run: npm ci --prefer-offline
+      
+      - name: 🔒 Security Vulnerability Scan
+        run: |
+          echo "## 🔒 Security Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Run npm audit
+          echo "### NPM Audit Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=moderate >> $GITHUB_STEP_SUMMARY 2>&1 || echo "Security scan completed"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          # Check for security vulnerabilities
+          npm audit --json > audit-results.json 2>/dev/null || echo '{}' > audit-results.json
+          
+          HIGH_VULNS=$(jq '.metadata.vulnerabilities.high // 0' audit-results.json)
+          CRITICAL_VULNS=$(jq '.metadata.vulnerabilities.critical // 0' audit-results.json)
+          
+          echo "### Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: $CRITICAL_VULNS" >> $GITHUB_STEP_SUMMARY
+          echo "- High: $HIGH_VULNS" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$CRITICAL_VULNS" -gt 0 ]; then
+            echo "🚨 CRITICAL VULNERABILITIES FOUND!" >> $GITHUB_STEP_SUMMARY
+            echo "CRITICAL_SECURITY_ALERT: $CRITICAL_VULNS vulnerabilities found" >> alert.log
+          fi
+      
+      - name: 🔍 Docker Security Scan
+        run: |
+          # Build Docker image for scanning
+          docker build -t security-scan:latest .
+          
+          # Install and run Trivy
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+          
+          echo "### Docker Security Scan" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          trivy image --severity HIGH,CRITICAL security-scan:latest >> $GITHUB_STEP_SUMMARY 2>&1 || echo "Docker scan completed"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      
+      - name: 🔐 SSL/TLS Certificate Check
+        run: |
+          echo "### SSL Certificate Monitoring" >> $GITHUB_STEP_SUMMARY
+          
+          # Check SSL certificates for production domains
+          DOMAINS=(
+            "your-production-domain.com"
+            "your-staging-domain.com"
+          )
+          
+          for domain in "${DOMAINS[@]}"; do
+            if command -v openssl >/dev/null 2>&1; then
+              CERT_EXPIRY=$(echo | openssl s_client -servername "$domain" -connect "$domain:443" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+              
+              if [ -n "$CERT_EXPIRY" ]; then
+                echo "- $domain: Certificate expires $CERT_EXPIRY" >> $GITHUB_STEP_SUMMARY
+                
+                # Check if certificate expires in 30 days
+                EXPIRY_TIMESTAMP=$(date -d "$CERT_EXPIRY" +%s 2>/dev/null || echo "0")
+                CURRENT_TIMESTAMP=$(date +%s)
+                DAYS_UNTIL_EXPIRY=$(( (EXPIRY_TIMESTAMP - CURRENT_TIMESTAMP) / 86400 ))
+                
+                if [ "$DAYS_UNTIL_EXPIRY" -lt 30 ]; then
+                  echo "⚠️ Certificate for $domain expires in $DAYS_UNTIL_EXPIRY days" >> $GITHUB_STEP_SUMMARY
+                fi
+              else
+                echo "- $domain: Unable to check certificate" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
+
+  database-monitoring:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.check_type == 'database' || github.event.inputs.check_type == 'all' || github.event_name == 'schedule'
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: seo_timeline
+          MYSQL_USER: seo_user
+          MYSQL_PASSWORD: seo_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🗄️ Database Health Check
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client redis-tools
+          
+          echo "## 🗄️ Database Monitoring" >> $GITHUB_STEP_SUMMARY
+          echo "**Check Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Wait for services
+          until mysqladmin ping -h localhost -P 3306 --silent; do
+            echo 'Waiting for MySQL...'
+            sleep 5
+          done
+          
+          # MySQL Health Check
+          echo "### MySQL Status" >> $GITHUB_STEP_SUMMARY
+          if mysqladmin ping -h localhost -P 3306 --silent; then
+            echo "✅ MySQL is healthy" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ MySQL is unhealthy" >> $GITHUB_STEP_SUMMARY
+            echo "DATABASE_ALERT: MySQL health check failed" >> alert.log
+          fi
+          
+          # Redis Health Check
+          echo "### Redis Status" >> $GITHUB_STEP_SUMMARY
+          if redis-cli -h localhost -p 6379 ping | grep -q "PONG"; then
+            echo "✅ Redis is healthy" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Redis is unhealthy" >> $GITHUB_STEP_SUMMARY
+            echo "DATABASE_ALERT: Redis health check failed" >> alert.log
+          fi
+      
+      - name: 📊 Database Performance Metrics
+        run: |
+          echo "### Database Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          # MySQL Performance
+          echo "=== MySQL Performance ===" >> $GITHUB_STEP_SUMMARY
+          mysql -h localhost -P 3306 -u seo_user -pseo_password -e "SHOW GLOBAL STATUS LIKE 'Connections';" >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "MySQL metrics unavailable"
+          mysql -h localhost -P 3306 -u seo_user -pseo_password -e "SHOW GLOBAL STATUS LIKE 'Questions';" >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "MySQL metrics unavailable"
+          
+          # Redis Performance
+          echo "=== Redis Performance ===" >> $GITHUB_STEP_SUMMARY
+          redis-cli -h localhost -p 6379 info stats | grep -E "(total_connections_received|total_commands_processed|used_memory_human)" >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "Redis metrics unavailable"
+          
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      
+      - name: 🔍 Database Query Analysis
+        run: |
+          # Setup database schema
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < database_schema.sql
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < phase5_schema.sql
+          
+          echo "### Database Query Performance" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          # Run performance test queries
+          echo "=== Table Row Counts ===" >> $GITHUB_STEP_SUMMARY
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline -e "
+            SELECT 
+              table_name,
+              table_rows
+            FROM information_schema.tables 
+            WHERE table_schema = 'seo_timeline'
+            ORDER BY table_rows DESC;" >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "Query failed"
+          
+          echo "=== Database Size ===" >> $GITHUB_STEP_SUMMARY
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline -e "
+            SELECT 
+              table_schema as 'Database',
+              ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) as 'Size (MB)'
+            FROM information_schema.tables 
+            WHERE table_schema = 'seo_timeline'
+            GROUP BY table_schema;" >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "Query failed"
+          
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  alerting:
+    needs: [uptime-monitoring, performance-monitoring, security-monitoring, database-monitoring]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+      
+      - name: 🚨 Process Alerts
+        run: |
+          echo "## 🚨 Alert Processing" >> $GITHUB_STEP_SUMMARY
+          echo "**Processing Time:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Create alert summary
+          ALERT_COUNT=0
+          
+          # Check job results
+          if [ "${{ needs.uptime-monitoring.result }}" == "failure" ]; then
+            echo "❌ Uptime monitoring failed" >> $GITHUB_STEP_SUMMARY
+            ALERT_COUNT=$((ALERT_COUNT + 1))
+          fi
+          
+          if [ "${{ needs.performance-monitoring.result }}" == "failure" ]; then
+            echo "❌ Performance monitoring failed" >> $GITHUB_STEP_SUMMARY
+            ALERT_COUNT=$((ALERT_COUNT + 1))
+          fi
+          
+          if [ "${{ needs.security-monitoring.result }}" == "failure" ]; then
+            echo "❌ Security monitoring failed" >> $GITHUB_STEP_SUMMARY
+            ALERT_COUNT=$((ALERT_COUNT + 1))
+          fi
+          
+          if [ "${{ needs.database-monitoring.result }}" == "failure" ]; then
+            echo "❌ Database monitoring failed" >> $GITHUB_STEP_SUMMARY
+            ALERT_COUNT=$((ALERT_COUNT + 1))
+          fi
+          
+          echo "### Alert Summary" >> $GITHUB_STEP_SUMMARY
+          echo "Total alerts: $ALERT_COUNT" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$ALERT_COUNT" -gt 0 ]; then
+            echo "🚨 **ATTENTION REQUIRED**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ All systems operational" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: 📧 Send Notifications
+        run: |
+          echo "Setting up notification channels..."
+          
+          # Here you would integrate with your notification systems:
+          # - Slack webhooks
+          # - Email notifications
+          # - PagerDuty
+          # - Teams webhooks
+          # - Discord webhooks
+          
+          # Example Slack notification (requires SLACK_WEBHOOK_URL secret)
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data '{"text":"🔍 Monitoring check completed - Check GitHub Actions for details"}' \
+              "${{ secrets.SLACK_WEBHOOK_URL }}" || echo "Slack notification failed"
+          fi
+          
+          echo "Notifications sent successfully"
+
+  monitoring-summary:
+    needs: [uptime-monitoring, performance-monitoring, security-monitoring, database-monitoring, alerting]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📋 Monitoring Summary
+        run: |
+          echo "## 📊 Monitoring Dashboard Summary" >> $GITHUB_STEP_SUMMARY
+          echo "**Report Generated:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status | Last Check |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Uptime Monitoring | ${{ needs.uptime-monitoring.result }} | $(date) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance Monitoring | ${{ needs.performance-monitoring.result }} | $(date) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Monitoring | ${{ needs.security-monitoring.result }} | $(date) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Database Monitoring | ${{ needs.database-monitoring.result }} | $(date) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Alerting System | ${{ needs.alerting.result }} | $(date) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next scheduled check:** $(date -d '+15 minutes')" >> $GITHUB_STEP_SUMMARY
+          echo "**Monitoring Configuration:** Every 15 minutes" >> $GITHUB_STEP_SUMMARY

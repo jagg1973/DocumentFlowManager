@@ -1,0 +1,275 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Build and test job
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: seo_timeline
+          MYSQL_USER: seo_user
+          MYSQL_PASSWORD: seo_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📥 Install Dependencies
+        run: npm ci
+
+      - name: 🔧 Set up Environment Variables
+        run: |
+          echo "NODE_ENV=test" >> $GITHUB_ENV
+          echo "DATABASE_URL=mysql://seo_user:seo_password@localhost:3306/seo_timeline" >> $GITHUB_ENV
+          echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
+          echo "SESSION_SECRET=test-secret-key-${{ github.run_id }}" >> $GITHUB_ENV
+          echo "PORT=5000" >> $GITHUB_ENV
+
+      - name: 🗄️ Set up Database Schema
+        run: |
+          # Wait for MySQL to be ready
+          until mysqladmin ping -h localhost -P 3306 --silent; do
+            echo 'Waiting for MySQL to be ready...'
+            sleep 3
+          done
+          
+          # Create database schema
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < database_schema.sql
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < phase5_schema.sql
+
+      - name: 🏗️ Build Application
+        run: npm run build
+
+      - name: 🧪 Run Type Checking
+        run: npm run check
+
+      - name: 🚀 Start Application for Testing
+        run: |
+          npm start &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+          
+          # Wait for application to be ready
+          timeout 60 bash -c 'until curl -f http://localhost:5000/api/health; do sleep 5; done'
+
+      - name: 🧪 Run API Tests
+        run: |
+          echo "Running API tests..."
+          
+          # Test health endpoint
+          curl -f http://localhost:5000/api/health
+          
+          # Test Phase 5 endpoints
+          curl -f http://localhost:5000/api/test-phase5
+          
+          # Test static file serving
+          curl -f http://localhost:5000/
+          
+          echo "API tests passed"
+
+      - name: 📊 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-artifacts
+          path: |
+            dist/
+            package.json
+            package-lock.json
+          retention-days: 5
+
+  # Docker build job (runs in parallel)
+  docker-build:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐳 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🏗️ Build Docker image
+        run: |
+          docker build -t document-flow-manager:${{ github.sha }} .
+          docker tag document-flow-manager:${{ github.sha }} document-flow-manager:latest
+
+      - name: 🧪 Test Docker image
+        run: |
+          # Create a temporary docker-compose for testing
+          cat > docker-compose.test.yml << EOF
+          version: '3.8'
+          services:
+            app:
+              image: document-flow-manager:${{ github.sha }}
+              ports:
+                - "5000:5000"
+              environment:
+                - NODE_ENV=production
+                - DATABASE_URL=mysql://seo_user:seo_password@mysql:3306/seo_timeline
+                - REDIS_URL=redis://redis:6379
+                - SESSION_SECRET=test-secret
+              depends_on:
+                - mysql
+                - redis
+            mysql:
+              image: mysql:8.0
+              environment:
+                MYSQL_ROOT_PASSWORD: rootpassword
+                MYSQL_DATABASE: seo_timeline
+                MYSQL_USER: seo_user
+                MYSQL_PASSWORD: seo_password
+            redis:
+              image: redis:7-alpine
+          EOF
+          
+          # Start services
+          docker-compose -f docker-compose.test.yml up -d
+          
+          # Wait for services to be ready
+          sleep 30
+          
+          # Test the application
+          curl -f http://localhost:5000/api/health
+          
+          # Clean up
+          docker-compose -f docker-compose.test.yml down
+
+      - name: 📊 Docker image info
+        run: |
+          docker images document-flow-manager:${{ github.sha }}
+          docker history document-flow-manager:${{ github.sha }}
+
+  # Security scan job
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 🔒 Run npm audit
+        run: |
+          npm audit --audit-level=high
+          npm audit fix --dry-run
+
+      - name: 🔍 Run security scan with Snyk (if token available)
+        if: env.SNYK_TOKEN
+        run: |
+          npm install -g snyk
+          snyk test
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # Performance test job
+  performance-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-test
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: seo_timeline
+          MYSQL_USER: seo_user
+          MYSQL_PASSWORD: seo_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: 🔄 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 📥 Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: 📥 Install Dependencies
+        run: npm ci
+
+      - name: 🗄️ Set up Database
+        run: |
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < database_schema.sql
+          mysql -h localhost -P 3306 -u seo_user -pseo_password seo_timeline < phase5_schema.sql
+
+      - name: 🚀 Start Application
+        run: |
+          export NODE_ENV=production
+          export DATABASE_URL=mysql://seo_user:seo_password@localhost:3306/seo_timeline
+          export REDIS_URL=redis://localhost:6379
+          export SESSION_SECRET=test-secret
+          npm start &
+          
+          # Wait for application to be ready
+          timeout 60 bash -c 'until curl -f http://localhost:5000/api/health; do sleep 5; done'
+
+      - name: 📊 Run Performance Tests
+        run: |
+          echo "Running basic performance tests..."
+          
+          # Test response times
+          time curl -f http://localhost:5000/api/health
+          time curl -f http://localhost:5000/api/test-phase5
+          time curl -f http://localhost:5000/
+          
+          echo "Performance tests completed"
