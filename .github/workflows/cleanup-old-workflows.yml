@@ -1,0 +1,31 @@
+name: Cleanup Old Workflow Runs
+
+on:
+  schedule:
+    # Run every Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧹 Delete Old Workflow Runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 30  # Keep runs from last 30 days
+          keep_minimum_runs: 10  # Always keep at least 10 recent runs per workflow
+
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🗑️ Delete Old Artifacts
+        uses: geekyeggo/delete-artifact@v4
+        with:
+          name: '*'
+          useGlob: true
+          skipIfNotFound: true
+          # Delete artifacts older than 7 days
+          olderThan: '7 days'

@@ -1,0 +1,57 @@
+name: Manual Cleanup Trigger
+
+on:
+  workflow_dispatch:
+    inputs:
+      cleanup_type:
+        description: 'Type of cleanup to perform'
+        required: true
+        default: 'moderate'
+        type: choice
+        options:
+        - conservative  # Keep 60 days, minimum 15 runs
+        - moderate      # Keep 30 days, minimum 10 runs  
+        - aggressive    # Keep 14 days, minimum 5 runs
+        - emergency     # Keep 7 days, minimum 3 runs
+
+jobs:
+  manual-cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🎛️ Set Cleanup Parameters
+        id: params
+        run: |
+          case "${{ github.event.inputs.cleanup_type }}" in
+            "conservative")
+              echo "days=60" >> $GITHUB_OUTPUT
+              echo "minimum=15" >> $GITHUB_OUTPUT
+              ;;
+            "moderate")
+              echo "days=30" >> $GITHUB_OUTPUT
+              echo "minimum=10" >> $GITHUB_OUTPUT
+              ;;
+            "aggressive")
+              echo "days=14" >> $GITHUB_OUTPUT
+              echo "minimum=5" >> $GITHUB_OUTPUT
+              ;;
+            "emergency")
+              echo "days=7" >> $GITHUB_OUTPUT
+              echo "minimum=3" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: 🧹 Perform Cleanup
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: ${{ steps.params.outputs.days }}
+          keep_minimum_runs: ${{ steps.params.outputs.minimum }}
+
+      - name: 📋 Cleanup Report
+        run: |
+          echo "## 🧹 Manual Cleanup Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- Cleanup type: **${{ github.event.inputs.cleanup_type }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- Days retained: **${{ steps.params.outputs.days }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- Minimum runs kept: **${{ steps.params.outputs.minimum }}**" >> $GITHUB_STEP_SUMMARY
+          echo "- Executed at: $(date)" >> $GITHUB_STEP_SUMMARY
