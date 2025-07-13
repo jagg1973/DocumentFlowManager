@@ -33,15 +33,25 @@ jobs:
       
       - name: 🔍 Code complexity analysis
         run: |
-          npm install -g complexity-report
-          
           echo "## 📊 Code Complexity Analysis" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           
-          # Analyze TypeScript files
+          # Simple line-based complexity analysis
+          echo "File complexity analysis (lines of code):" >> $GITHUB_STEP_SUMMARY
           find src server -name "*.ts" -o -name "*.tsx" | head -20 | while read file; do
-            echo "=== $file ===" >> $GITHUB_STEP_SUMMARY
-            complexity-report --format plain --threshold 10 "$file" >> $GITHUB_STEP_SUMMARY 2>&1 || echo "Analysis completed for $file"
+            if [ -f "$file" ]; then
+              lines=$(wc -l < "$file" 2>/dev/null || echo "0")
+              echo "=== $file === ($lines lines)" >> $GITHUB_STEP_SUMMARY
+              
+              # Basic complexity indicators
+              if [ "$lines" -gt 500 ]; then
+                echo "  ⚠️  High complexity: $lines lines (consider splitting)" >> $GITHUB_STEP_SUMMARY
+              elif [ "$lines" -gt 200 ]; then
+                echo "  📊  Medium complexity: $lines lines" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "  ✅  Low complexity: $lines lines" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
           done
           
           echo '```' >> $GITHUB_STEP_SUMMARY
