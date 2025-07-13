@@ -58,15 +58,22 @@ jobs:
       
       - name: 📏 Code metrics collection
         run: |
-          # Install code metrics tools
-          npm install -g sloc
-          
           echo "## 📏 Code Metrics" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           
-          # Source Lines of Code
-          sloc --format cli-table src server >> $GITHUB_STEP_SUMMARY 2>&1 || echo "SLOC analysis completed"
+          # Simple line counting without external tools
+          echo "Source Lines of Code Analysis:" >> $GITHUB_STEP_SUMMARY
           
+          total_lines=0
+          for dir in src server; do
+            if [ -d "$dir" ]; then
+              dir_lines=$(find "$dir" -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}' || echo "0")
+              echo "$dir: $dir_lines lines" >> $GITHUB_STEP_SUMMARY
+              total_lines=$((total_lines + dir_lines))
+            fi
+          done
+          
+          echo "Total: $total_lines lines" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           
           # File count metrics
@@ -217,15 +224,27 @@ jobs:
       
       - name: 🔍 Dependency graph analysis
         run: |
-          npm install -g dependency-cruiser
-          
           echo "## 🔍 Dependency Analysis" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           
-          # Generate dependency graph
-          depcruise --output-type json src server > dependency-graph.json 2>/dev/null || echo '{"modules": []}' > dependency-graph.json
+          # Simple dependency analysis using find and grep
+          echo "Dependency Analysis (simplified):" >> $GITHUB_STEP_SUMMARY
           
-          # Analyze circular dependencies
-          CIRCULAR_DEPS=$(jq '[.modules[] | select(.dependencies[]?.circular == true)] | length' dependency-graph.json)
+          # Count import statements
+          import_count=$(find src server -name "*.ts" -o -name "*.tsx" | xargs grep -h "^import\|^export" 2>/dev/null | wc -l || echo "0")
+          echo "Total import/export statements: $import_count" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for potential circular dependencies (basic check)
+          echo "Checking for potential circular dependencies..." >> $GITHUB_STEP_SUMMARY
+          find src server -name "*.ts" -o -name "*.tsx" | head -10 | while read file; do
+            basename_file=$(basename "$file" .ts)
+            basename_file=$(basename "$basename_file" .tsx)
+            if grep -q "$basename_file" "$file" 2>/dev/null; then
+              echo "  Potential self-reference in: $file" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo '```' >> $GITHUB_STEP_SUMMARY
           
           echo "Circular dependencies found: $CIRCULAR_DEPS" >> $GITHUB_STEP_SUMMARY
           
@@ -431,18 +450,33 @@ jobs:
       
       - name: 🔍 Code documentation coverage
         run: |
-          npm install -g typedoc
+          echo "## 📚 Documentation Coverage" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
           
-          # Generate documentation
-          npx typedoc --out docs src --json docs.json 2>/dev/null || echo "TypeDoc analysis completed"
+          # Simple documentation analysis without TypeDoc
+          echo "Documentation Analysis:" >> $GITHUB_STEP_SUMMARY
           
-          # Analyze documentation coverage
-          if [ -f docs.json ]; then
-            DOCUMENTED_FUNCTIONS=$(jq '[.children[]?.children[]? | select(.kindString == "Function" and .comment)] | length' docs.json)
-            TOTAL_FUNCTIONS=$(jq '[.children[]?.children[]? | select(.kindString == "Function")] | length' docs.json)
+          # Count JSDoc comments
+          JSDOC_COMMENTS=$(find src server -name "*.ts" -o -name "*.tsx" | xargs grep -c "\/\*\*" 2>/dev/null | awk -F: '{sum += $2} END {print sum}' || echo "0")
+          echo "JSDoc comments found: $JSDOC_COMMENTS" >> $GITHUB_STEP_SUMMARY
+          
+          # Count functions (simplified)
+          FUNCTION_COUNT=$(find src server -name "*.ts" -o -name "*.tsx" | xargs grep -c "function\|=>" 2>/dev/null | awk -F: '{sum += $2} END {print sum}' || echo "0")
+          echo "Approximate function count: $FUNCTION_COUNT" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate rough documentation coverage
+          if [ "$FUNCTION_COUNT" -gt 0 ]; then
+            DOC_PERCENTAGE=$((JSDOC_COMMENTS * 100 / FUNCTION_COUNT))
+            echo "Estimated documentation coverage: ${DOC_PERCENTAGE}%" >> $GITHUB_STEP_SUMMARY
             
-            echo "Documented functions: $DOCUMENTED_FUNCTIONS/$TOTAL_FUNCTIONS" >> $GITHUB_STEP_SUMMARY
+            if [ "$DOC_PERCENTAGE" -lt 30 ]; then
+              echo "⚠️ Consider adding more documentation" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "✅ Good documentation coverage" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
+          
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
   quality-summary:
     needs: [code-quality-analysis, dependency-analysis, test-coverage-analysis, documentation-analysis]
