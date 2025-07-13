@@ -6,6 +6,8 @@ import http from "http";
 import { Server } from "socket.io";
 import { pool } from "./db";
 import { registerRoutes } from "./routes";
+import { workflowEngine } from "./workflow-engine";
+import { auditService } from "./audit-service";
 
 declare module 'express-session' {
   interface SessionData {
@@ -82,13 +84,11 @@ app.use((req, res, next) => {
   next();
 });
 
-registerRoutes(app);
-
 // Environment-specific setup with proper error handling
 async function setupEnvironment() {
   try {
     if (process.env.NODE_ENV === "development") {
-      const { setupVite, log } = await import("./vite.js");
+      const { setupVite, log } = await import("./vite");
       await setupVite(app, server);
 
       app.use((req, res, next) => {
@@ -149,6 +149,10 @@ const gracefulShutdown = () => {
     }
     
     try {
+      // Stop workflow engine
+      await workflowEngine.stop();
+      console.log('Workflow engine stopped');
+      
       // Close database connections
       await pool.end();
       console.log('Database connections closed');
@@ -185,18 +189,146 @@ process.on('unhandledRejection', (reason, promise) => {
 // Main startup function
 async function startServer() {
   try {
+    console.log('=== STARTING SERVER FUNCTION ===');
+    
     // Validate environment before starting
     if (!(await validateEnvironment())) {
+      console.log('Environment validation failed, exiting...');
       process.exit(1);
     }
+    console.log('Environment validation passed');
+
+    // Initialize enterprise services
+    console.log('Initializing enterprise services...');
+    
+    // Start workflow engine
+    await workflowEngine.start();
+    console.log('Workflow engine started');
+
+    // Initialize audit service
+    console.log('Audit service initialized');
+
+    // Register API routes before setting up environment-specific middleware
+    console.log('About to call registerRoutes...');
+    
+    // TEST: Add a simple route directly here to verify routing works
+    app.get('/api/test-direct', (req, res) => {
+      console.log('Direct test route called');
+      res.json({ message: 'Direct route working', timestamp: new Date().toISOString() });
+    });
+    console.log('Direct test route registered');
+    
+    await registerRoutes(app);
+    console.log('registerRoutes completed successfully');
 
     // Setup environment-specific middleware
+    console.log('About to call setupEnvironment...');
     await setupEnvironment();
+    console.log('setupEnvironment completed successfully');
 
-    // Socket.IO connection handling
-    io.on('connection', (socket) => {
+    // NOTE: API routes are registered BEFORE static serving to ensure they take precedence
+
+    // Socket.IO connection handling with enhanced room management
+    io.on('connection', (socket: any) => {
       console.log('Client connected:', socket.id);
       
+      // Join project room
+      socket.on('join_project', (data: { projectId: number, userId: string }) => {
+        const { projectId, userId } = data;
+        const roomName = `project_${projectId}`;
+        socket.join(roomName);
+        socket.userId = userId;
+        socket.projectId = projectId;
+        console.log(`User ${userId} joined project room: ${roomName}`);
+        
+        // Log user activity
+        auditService.logUserActivity(userId, 'join_project', 'project', { projectId });
+      });
+
+      // Handle task updates
+      socket.on('task_updated', (data: any) => {
+        const { taskId, projectId, changes, userId } = data;
+        const roomName = `project_${projectId}`;
+        
+        // Broadcast to all users in the project room except sender
+        socket.to(roomName).emit('task_updated', {
+          taskId,
+          changes,
+          updatedBy: userId,
+          timestamp: new Date().toISOString()
+        });
+
+        // Log user activity
+        auditService.logUserActivity(userId, 'task_updated', 'task', { taskId, changes });
+        
+        // Trigger workflow engine
+        workflowEngine.emit('task_updated', { taskId, projectId, changes, userId });
+      });
+
+      // Handle new comments
+      socket.on('comment_added', (data: any) => {
+        const { taskId, projectId, comment, userId } = data;
+        const roomName = `project_${projectId}`;
+        
+        socket.to(roomName).emit('comment_added', {
+          taskId,
+          comment,
+          addedBy: userId,
+          timestamp: new Date().toISOString()
+        });
+
+        // Log user activity
+        auditService.logUserActivity(userId, 'comment_added', 'task', { taskId, comment });
+      });
+
+      // Handle task status changes
+      socket.on('task_status_changed', (data: any) => {
+        const { taskId, projectId, oldStatus, newStatus, userId } = data;
+        const roomName = `project_${projectId}`;
+        
+        socket.to(roomName).emit('task_status_changed', {
+          taskId,
+          oldStatus,
+          newStatus,
+          changedBy: userId,
+          timestamp: new Date().toISOString()
+        });
+
+        // Log user activity
+        auditService.logUserActivity(userId, 'task_status_changed', 'task', { taskId, oldStatus, newStatus });
+        
+        // Trigger workflow engine
+        if (newStatus === 'Completed') {
+          workflowEngine.emit('task_completed', { taskId, projectId, userId });
+        }
+      });
+
+      // Handle typing indicators for comments
+      socket.on('user_typing', (data: any) => {
+        const { taskId, projectId, userId, isTyping } = data;
+        const roomName = `project_${projectId}`;
+        
+        socket.to(roomName).emit('user_typing', {
+          taskId,
+          userId,
+          isTyping,
+          timestamp: new Date().toISOString()
+        });
+      });
+
+      // Handle notifications
+      socket.on('notification_sent', (data: any) => {
+        const { recipientId, notification } = data;
+        io.to(`user_${recipientId}`).emit('notification_received', notification);
+      });
+
+      // Join user-specific room for personal notifications
+      socket.on('join_user_room', (data: { userId: string }) => {
+        const { userId } = data;
+        socket.join(`user_${userId}`);
+        console.log(`User ${userId} joined personal notification room`);
+      });
+
       socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
       });
@@ -218,4 +350,9 @@ async function startServer() {
 }
 
 // Start the server
-startServer();
+console.log('=== ABOUT TO CALL startServer() ===');
+startServer().then(() => {
+  console.log('=== startServer() COMPLETED ===');
+}).catch((error) => {
+  console.error('=== startServer() ERROR ===', error);
+});
